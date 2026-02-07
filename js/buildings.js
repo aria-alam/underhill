@@ -60,28 +60,36 @@ const Buildings = {
             }
         }
 
-        // Check if player is now boxed in (no walkable cardinal neighbors)
-        const pt2 = Player.getTile();
-        const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
-        let hasExit = false;
-        for (const [dc, dr] of dirs) {
-            const c = pt2.col + dc;
-            const r = pt2.row + dr;
-            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS && Grid.isWalkable(c, r)) {
-                hasExit = true;
-                break;
-            }
-        }
-        if (!hasExit) {
-            const escape = Grid.findWalkableNear(pt2.col, pt2.row, 10);
-            if (escape) {
-                Player.x = escape.col * TILE_SIZE;
-                Player.y = escape.row * TILE_SIZE;
-                Player.moveTarget = null;
+        // Check if player or any NPC is now boxed in
+        this._unstickEntity(Player);
+        if (typeof NPC !== 'undefined') {
+            for (const npc of NPC.list) {
+                this._unstickEntity(npc);
             }
         }
 
         return true;
+    },
+
+    // Check if an entity (Player or NPC) is boxed in and teleport them out
+    _unstickEntity(entity) {
+        const eCol = Math.floor(entity.x / TILE_SIZE);
+        const eRow = Math.floor(entity.y / TILE_SIZE);
+        const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+        for (const [dc, dr] of dirs) {
+            const c = eCol + dc;
+            const r = eRow + dr;
+            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS && Grid.isWalkable(c, r)) {
+                return; // has at least one exit
+            }
+        }
+        // Boxed in — find nearest walkable tile
+        const safe = Grid.findWalkableNear(eCol, eRow, 10);
+        if (safe) {
+            entity.x = safe.col * TILE_SIZE;
+            entity.y = safe.row * TILE_SIZE;
+            if (entity.moveTarget) entity.moveTarget = null;
+        }
     },
 
     // Remove a building (e.g., meteor strike)
