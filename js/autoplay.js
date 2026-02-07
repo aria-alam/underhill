@@ -177,6 +177,9 @@ const Autoplay = {
     // ==================== Setup & Dialogue Handling ====================
 
     _skipSetup(mode) {
+        // ---- 0. Delete any saved game so we start completely fresh ----
+        Save.deleteSave();
+
         // ---- 1. Kill ALL dialogue state aggressively ----
         // Null out every callback before calling close() so chains don't fire
         Dialogue.onClose = null;
@@ -186,8 +189,12 @@ const Autoplay = {
         Dialogue.isBuildMenu = false;
         Dialogue.active = false; // force inactive without firing close() callbacks
 
-        // ---- 2. Unpause ----
+        // ---- 2. Unpause and reset game-over state ----
         Game.state.paused = false;
+        Game.state.gameOver = false;
+        Game.state.gameOverReason = '';
+        Game.state.hadPopulation = false;
+        Game.state.dyingTimer = 0;
 
         // ---- 3. Set player identity if not set ----
         if (!Player.name || Player.name === 'Commander') {
