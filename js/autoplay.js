@@ -539,33 +539,35 @@ const Autoplay = {
                 return false;
             }
 
-            // Find HQ center
-            const hq = s.buildings[0];
-            if (!hq) { if (this._verbose) console.log('[Autoplay] No HQ found'); return false; }
-            const cx = hq.col + 1;
-            const cy = hq.row + 1;
-
-            // Collect positions of player + all NPCs to avoid boxing anyone in
+            // Search outward from PLAYER position (not HQ) — mimics real gameplay
+            // where you can only build on the tile you're facing
             const pt = Player.getTile();
-            const occupied = [{ col: pt.col, row: pt.row }];
+            const cx = pt.col;
+            const cy = pt.row;
+
+            // Collect NPC positions to avoid boxing them in
+            const npcPositions = [];
             for (const npc of NPC.list) {
-                occupied.push({
+                npcPositions.push({
                     col: Math.floor(npc.x / TILE_SIZE),
                     row: Math.floor(npc.y / TILE_SIZE),
                 });
             }
 
-            // Spiral search
-            for (let dist = 2; dist < 25; dist++) {
+            // Spiral search from player — max range 8 tiles (realistic reach)
+            for (let dist = 1; dist < 8; dist++) {
                 for (let dr = -dist; dr <= dist; dr++) {
                     for (let dc = -dist; dc <= dist; dc++) {
                         if (Math.abs(dr) !== dist && Math.abs(dc) !== dist) continue;
                         const col = cx + dc;
                         const row = cy + dr;
 
-                        // Skip tiles within 2 of any entity to avoid trapping them
+                        // Skip tiles within 2 of player to avoid self-trapping
+                        if (Math.abs(col - cx) <= 1 && Math.abs(row - cy) <= 1) continue;
+
+                        // Skip tiles within 2 of any NPC
                         let tooClose = false;
-                        for (const e of occupied) {
+                        for (const e of npcPositions) {
                             if (Math.abs(col - e.col) <= 2 && Math.abs(row - e.row) <= 2) {
                                 tooClose = true;
                                 break;
@@ -576,7 +578,6 @@ const Autoplay = {
                         if (Grid.canPlace(col, row, def.width, def.height)) {
                             const ok = Buildings.place(s, type, col, row);
                             if (ok) {
-                                // Safety: if player is now boxed in, teleport them out
                                 this._escapeIfTrapped();
                             }
                             if (!ok && this._verbose) {
@@ -587,7 +588,7 @@ const Autoplay = {
                     }
                 }
             }
-            if (this._verbose) console.log(`[Autoplay] No valid tile found for ${type} within dist 25`);
+            if (this._verbose) console.log(`[Autoplay] No valid tile near player for ${type}`);
             return false;
         } catch (e) {
             this._bug('PLACE_ERROR', `Exception in _autoPlace(${type}): ${e.message}`, e);
@@ -682,7 +683,7 @@ const Autoplay = {
 
         const s = Game.state;
 
-        // Priority: walk toward NPCs with queued dialogue and talk to them
+        // Priority 1: walk toward NPCs with queued dialogue and talk to them
         if (!Dialogue.active) {
             const talkTarget = NPC.list.find(n => n.dialogueQueue && n.dialogueQueue.length > 0);
             if (talkTarget) {
@@ -705,7 +706,26 @@ const Autoplay = {
             }
         }
 
-        // Otherwise wander near buildings randomly
+        // Priority 2: stay near HQ / colony center so building placement works
+        // (since _autoPlace searches outward from player position)
+        const hq = s.buildings[0];
+        if (hq) {
+            const pt = Player.getTile();
+            const hcx = hq.col + 1;
+            const hcy = hq.row + 1;
+            const distToHQ = Math.abs(pt.col - hcx) + Math.abs(pt.row - hcy);
+
+            // If too far from colony, walk back toward the edge of the colony
+            if (distToHQ > 12) {
+                const dest = Grid.findWalkableNear(hcx, hcy, 6);
+                if (dest) {
+                    Player.moveTarget = { x: dest.col * TILE_SIZE, y: dest.row * TILE_SIZE };
+                    return;
+                }
+            }
+        }
+
+        // Priority 3: wander near buildings
         if (s.buildings.length === 0) return;
         const target = s.buildings[Math.floor(Math.random() * s.buildings.length)];
         const def = BUILDING_DEFS[target.type];
