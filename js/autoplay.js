@@ -187,9 +187,9 @@ const Autoplay = {
         // ---- 4. Set colony mode ----
         Game.state.colonyMode = mode;
 
-        // ---- 5. Clear ALL NPC dialogue queues (not just Kimura) ----
+        // ---- 5. Reset NPC talking state but KEEP dialogue queues ----
+        // (so Dr. Kimura's intro tutorial still plays)
         for (const npc of NPC.list) {
-            npc.dialogueQueue = [];
             if (npc.state === 'talking') npc.state = 'idle';
         }
 
@@ -389,74 +389,93 @@ const Autoplay = {
             let toBuild = null;
             let reason = '';
 
-            // Count existing building types (avoid spamming the same thing)
+            // Count existing building types
             const buildingCounts = {};
             for (const b of s.buildings) {
                 buildingCounts[b.type] = (buildingCounts[b.type] || 0) + 1;
             }
+            const has = (type) => (buildingCounts[type] || 0);
+            const netPwr = net[RESOURCE.POWER] || 0;
+            const netWater = net[RESOURCE.WATER] || 0;
+            const netO2 = net[RESOURCE.OXYGEN] || 0;
+            const netFood = net[RESOURCE.FOOD] || 0;
+            const netMat = net[RESOURCE.MATERIALS] || 0;
 
-            // Critical: no power production (but cap solar panels at 6 until other needs met)
-            if ((net[RESOURCE.POWER] || 0) <= 0 && mat >= 10 && (buildingCounts[BUILDING.SOLAR_PANEL] || 0) < 6) {
+            // === PHASE 1: Bootstrap (first 2 solar panels for power) ===
+            if (has(BUILDING.SOLAR_PANEL) < 2 && mat >= 10) {
                 toBuild = BUILDING.SOLAR_PANEL;
-                reason = `net power: ${(net[RESOURCE.POWER] || 0).toFixed(1)}`;
+                reason = 'bootstrap power';
             }
-            // Critical: no water
-            else if ((net[RESOURCE.WATER] || 0) <= 0 && pwr > 5 && mat >= 20) {
+            // === PHASE 2: Mining drill for material income (CRITICAL) ===
+            else if (has(BUILDING.MINING_DRILL) < 1 && mat >= 15) {
+                toBuild = BUILDING.MINING_DRILL;
+                reason = 'need material income';
+            }
+            // === PHASE 3: Life support ===
+            else if (netWater <= 0 && mat >= 20) {
                 toBuild = BUILDING.WATER_EXTRACTOR;
                 reason = 'no water production';
             }
-            // Critical: no oxygen
-            else if ((net[RESOURCE.OXYGEN] || 0) <= 0 && pwr > 5 && mat >= 20) {
+            else if (netO2 <= 0 && mat >= 20) {
                 toBuild = BUILDING.O2_GENERATOR;
                 reason = 'no O2 production';
             }
-            // Critical: no food
-            else if ((net[RESOURCE.FOOD] || 0) <= 0 && pwr > 3 && water > 3 && mat >= 25) {
+            // === PHASE 4: More power if buildings are starved ===
+            else if (netPwr < 2 && mat >= 10) {
+                toBuild = BUILDING.SOLAR_PANEL;
+                reason = `power deficit: ${netPwr.toFixed(1)}`;
+            }
+            // === PHASE 5: Food ===
+            else if (netFood <= 0 && mat >= 25) {
                 toBuild = BUILDING.GREENHOUSE;
                 reason = 'no food production';
             }
-            // Need housing for growth
-            else if (pop >= s.popCapacity && s.popCapacity < 20 && mat >= 30) {
-                toBuild = BUILDING.HABITAT;
-                reason = `pop ${pop} >= cap ${s.popCapacity}`;
+            // === PHASE 6: Second mining drill ===
+            else if (has(BUILDING.MINING_DRILL) < 2 && netMat < 2 && mat >= 15) {
+                toBuild = BUILDING.MINING_DRILL;
+                reason = 'need more material income';
             }
-            // Need a landing pad
+            // === PHASE 7: Population growth ===
             else if (!Buildings.hasLandingPad(s) && mat >= 40) {
                 toBuild = BUILDING.LANDING_PAD;
                 reason = 'no landing pad';
             }
-            // More power for growth
-            else if ((net[RESOURCE.POWER] || 0) < 5 && mat >= 10) {
+            else if (pop >= s.popCapacity && mat >= 30) {
+                toBuild = BUILDING.HABITAT;
+                reason = `pop ${pop} >= cap ${s.popCapacity}`;
+            }
+            // === Growth: more power ===
+            else if (netPwr < 5 && mat >= 10) {
                 toBuild = BUILDING.SOLAR_PANEL;
-                reason = `net power low: ${(net[RESOURCE.POWER] || 0).toFixed(1)}`;
+                reason = `net power low: ${netPwr.toFixed(1)}`;
             }
-            // Mining when materials getting low
-            else if (mat < 80 && pwr > 10 && mat >= 15) {
+            // === Growth: more mining if materials dropping ===
+            else if (netMat <= 0 && mat >= 15) {
                 toBuild = BUILDING.MINING_DRILL;
-                reason = `materials low: ${Math.floor(mat)}`;
+                reason = 'negative material rate';
             }
-            // Storage when things are full
+            // === Storage when things are full ===
             else if (mat > 150 && s.maxStorage[RESOURCE.POWER] < 200) {
                 toBuild = BUILDING.STORAGE_DEPOT;
                 reason = 'need more storage';
             }
-            // Tier 2+ buildings when available and affordable
+            // === Tier 2 buildings ===
             else if (s.unlockedTiers && s.unlockedTiers.includes(2) && mat >= 40) {
                 const options = [];
-                if ((net[RESOURCE.FOOD] || 0) < 3) options.push(BUILDING.HYDROPONICS_LAB);
-                if ((net[RESOURCE.POWER] || 0) < 10) options.push(BUILDING.SOLAR_FARM);
+                if (netFood < 3) options.push(BUILDING.HYDROPONICS_LAB);
+                if (netPwr < 10) options.push(BUILDING.SOLAR_FARM);
                 if (!Buildings.hasMedicalBay(s)) options.push(BUILDING.MEDICAL_BAY);
                 if (options.length > 0) {
                     toBuild = options[Math.floor(Math.random() * options.length)];
                     reason = 'tier 2 expansion';
                 }
             }
-            // Tier 3 — terraform-focused
+            // === Tier 3 buildings ===
             else if (s.unlockedTiers && s.unlockedTiers.includes(3) && mat >= 70) {
                 const t3 = [];
                 if (pwr > 20) t3.push(BUILDING.TERRAFORMING_TOWER);
                 if (pwr > 15 && water > 10) t3.push(BUILDING.BIODOME);
-                if ((net[RESOURCE.POWER] || 0) < 15) t3.push(BUILDING.FUSION_REACTOR);
+                if (netPwr < 15) t3.push(BUILDING.FUSION_REACTOR);
                 if (mat < 100) t3.push(BUILDING.ADVANCED_DRILL);
                 if (t3.length > 0) {
                     toBuild = t3[Math.floor(Math.random() * t3.length)];
@@ -546,10 +565,33 @@ const Autoplay = {
         if (this.moveTimer < 4) return; // move every ~2 seconds
         this.moveTimer = 0;
 
-        // Wander near buildings randomly
         const s = Game.state;
-        if (s.buildings.length === 0) return;
 
+        // Priority: walk toward NPCs with queued dialogue and talk to them
+        if (!Dialogue.active) {
+            const talkTarget = NPC.list.find(n => n.dialogueQueue && n.dialogueQueue.length > 0);
+            if (talkTarget) {
+                const dist = Math.abs(Player.x - talkTarget.x) + Math.abs(Player.y - talkTarget.y);
+                if (dist < TILE_SIZE * 2) {
+                    // Close enough — trigger conversation
+                    Interaction.talkToNPC(talkTarget, s);
+                    return;
+                }
+                // Walk toward them
+                const dest = Grid.findWalkableNear(
+                    Math.floor(talkTarget.x / TILE_SIZE),
+                    Math.floor(talkTarget.y / TILE_SIZE),
+                    2
+                );
+                if (dest) {
+                    Player.moveTarget = { x: dest.col * TILE_SIZE, y: dest.row * TILE_SIZE };
+                    return;
+                }
+            }
+        }
+
+        // Otherwise wander near buildings randomly
+        if (s.buildings.length === 0) return;
         const target = s.buildings[Math.floor(Math.random() * s.buildings.length)];
         const def = BUILDING_DEFS[target.type];
         const dest = Grid.findWalkableNear(
