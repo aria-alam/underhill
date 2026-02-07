@@ -69,13 +69,8 @@ const Autoplay = {
             decisionsMade: 0,
         };
 
-        // Unpause if paused
-        Game.state.paused = false;
-
-        // Close any open dialogue
-        if (Dialogue.active) {
-            Dialogue.close();
-        }
+        // Force through fresh game setup if needed
+        this._skipSetup(options.mode || 'conflict');
 
         // Hook into global errors
         this.originalOnError = window.onerror;
@@ -98,9 +93,9 @@ const Autoplay = {
             if (Game.state.paused) {
                 Game.state.paused = false;
             }
-            // Close dialogues that pop up (events, NPC chatter)
-            if (Dialogue.active && !Dialogue.isNameEntry) {
-                Dialogue.close();
+            // Handle dialogues — advance through them naturally
+            if (Dialogue.active) {
+                this._handleDialogue();
             }
 
             this.tickCount++;
@@ -155,6 +150,81 @@ const Autoplay = {
         }
         this.report();
         console.log('%c[Autoplay] Stopped.', 'color:#C0392B;font-weight:bold');
+    },
+
+    // ==================== Setup & Dialogue Handling ====================
+
+    _skipSetup(mode) {
+        // Kill any intro/character creation dialogue chain
+        Dialogue.onClose = null;
+        Dialogue.close();
+        Game.state.paused = false;
+
+        // Set player identity if not set
+        if (!Player.name || Player.name === 'Commander') {
+            Player.name = 'Autoplay Bot';
+            Player.gender = 'female';
+            Player.portrait = PORTRAITS.PLAYER_FEMALE;
+        }
+
+        // Set colony mode
+        Game.state.colonyMode = mode;
+
+        // Update Dr. Kimura's faction for the mode
+        const kimura = NPC.list.find(n => n.name === 'Dr. Kimura');
+        if (kimura) {
+            if (mode === 'conflict') {
+                kimura.faction = FACTION.GREEN;
+                kimura.suitColor = FACTION_COLORS[FACTION.GREEN];
+            } else {
+                kimura.faction = FACTION.NEUTRAL;
+                kimura.suitColor = FACTION_COLORS[FACTION.NEUTRAL];
+            }
+            // Clear any queued intro dialogue so it doesn't block
+            kimura.dialogueQueue = [];
+        }
+
+        console.log(`%c[Autoplay] Setup complete — mode: ${mode}, player: ${Player.name}`, 'color:#6B8E5A');
+    },
+
+    _handleDialogue() {
+        // Name entry — type a name and submit
+        if (Dialogue.isNameEntry) {
+            Dialogue.nameText = 'Autoplay Bot';
+            Dialogue.handleNameKey('enter');
+            return;
+        }
+
+        // Choice dialogue — pick first non-cancel option
+        if (Dialogue.choices && Dialogue.choices.length > 0) {
+            // For colony mode, prefer conflict
+            const conflictChoice = Dialogue.choices.findIndex(c =>
+                c.label && c.label.toLowerCase().includes('conflict')
+            );
+            if (conflictChoice >= 0) {
+                Dialogue.choiceIndex = conflictChoice;
+            } else {
+                // Pick first option (skip Cancel if it's last)
+                Dialogue.choiceIndex = 0;
+            }
+            Dialogue.advance();
+            return;
+        }
+
+        // Build menu — close it
+        if (Dialogue.isBuildMenu) {
+            Dialogue.close();
+            return;
+        }
+
+        // Regular dialogue — advance through text
+        if (Dialogue.lines && Dialogue.charIndex < (Dialogue.lines[Dialogue.lineIndex] || '').length) {
+            // Skip typewriter — show full line
+            Dialogue.charIndex = 9999;
+        } else {
+            // Advance to next line or close
+            Dialogue.advance();
+        }
     },
 
     // ==================== Watchdog ====================
