@@ -226,6 +226,14 @@ const Autoplay = {
         Game.state.solTime = SOL_DURATION * 0.15;
         Game.state.isNighttime = false;
 
+        // ---- 8. Seed starting resources so colonists don't die before production ----
+        // Without this, the first colonist spawned during turbo fast-forward
+        // can die when night arrives and solar panels stop producing power.
+        Game.state.resources[RESOURCE.FOOD] = 25;
+        Game.state.resources[RESOURCE.WATER] = 25;
+        Game.state.resources[RESOURCE.OXYGEN] = 25;
+        Game.state.resources[RESOURCE.POWER] = 15;
+
         console.log(`%c[Autoplay] Fresh game started — mode: ${mode}, buildings: ${Game.state.buildings.length}, mat: ${Game.state.resources[RESOURCE.MATERIALS]}`, 'color:#6B8E5A');
     },
 
@@ -671,11 +679,14 @@ const Autoplay = {
             Game.updatePeakPopulation();
 
             // Actively spawn colonists every ~60 game-seconds if colony is stable
+            // Avoid spawning near nighttime — night kills solar power and can
+            // wipe out a new colonist before the next daytime tick.
+            const turboSolProgress = (s.solTime % SOL_DURATION) / SOL_DURATION;
+            const safeToSpawn = turboSolProgress > 0.10 && turboSolProgress < 0.65;
             if (i % 60 === 0 && Buildings.hasLandingPad(s) &&
                 s.resources[RESOURCE.POPULATION] < s.popCapacity &&
-                !s.isNighttime) {
+                safeToSpawn) {
                 // Only spawn if net production can sustain more colonists
-                const pop = s.resources[RESOURCE.POPULATION];
                 const newConsume = POP_CONSUMPTION[RESOURCE.FOOD]; // 0.3 per colonist
                 const netFood = (s.netRates[RESOURCE.FOOD] || 0) - newConsume;
                 const netWater = (s.netRates[RESOURCE.WATER] || 0) - newConsume;
@@ -685,7 +696,7 @@ const Autoplay = {
                 const o2Pct = s.resources[RESOURCE.OXYGEN] / (s.maxStorage[RESOURCE.OXYGEN] || 1);
 
                 if (netFood > 0 && netWater > 0 && netO2 > 0 &&
-                    foodPct > 0.3 && waterPct > 0.3 && o2Pct > 0.3) {
+                    foodPct > 0.4 && waterPct > 0.4 && o2Pct > 0.4) {
                     const added = Resources.addColonists(s, 1);
                     for (let j = 0; j < added; j++) {
                         const npc = NPC.spawn(s);
@@ -701,14 +712,25 @@ const Autoplay = {
 
             // Catch game over — log full state for debugging
             if (s.gameOver) {
+                const turboSp = (s.solTime % SOL_DURATION) / SOL_DURATION;
                 console.log('%c[Autoplay] GAME OVER caught in turbo!', 'color:#C0392B;font-weight:bold');
                 console.log('  Reason:', s.gameOverReason);
                 console.log('  hadPopulation:', s.hadPopulation);
                 console.log('  population:', s.resources[RESOURCE.POPULATION]);
-                console.log('  food:', s.resources[RESOURCE.FOOD], 'water:', s.resources[RESOURCE.WATER], 'O2:', s.resources[RESOURCE.OXYGEN]);
-                console.log('  sol:', s.sol, 'solTime:', s.solTime, 'isNight:', s.isNighttime);
+                console.log('  food:', s.resources[RESOURCE.FOOD].toFixed(1),
+                    'water:', s.resources[RESOURCE.WATER].toFixed(1),
+                    'O2:', s.resources[RESOURCE.OXYGEN].toFixed(1),
+                    'power:', s.resources[RESOURCE.POWER].toFixed(1));
+                console.log('  netRates — food:', (s.netRates[RESOURCE.FOOD]||0).toFixed(2),
+                    'water:', (s.netRates[RESOURCE.WATER]||0).toFixed(2),
+                    'O2:', (s.netRates[RESOURCE.OXYGEN]||0).toFixed(2),
+                    'power:', (s.netRates[RESOURCE.POWER]||0).toFixed(2));
+                console.log('  sol:', s.sol, 'solTime:', s.solTime.toFixed(0),
+                    'solProgress:', (turboSp * 100).toFixed(0) + '%',
+                    'isNight:', s.isNighttime);
                 console.log('  buildings:', s.buildings.length, 'NPCs:', NPC.list.length);
                 console.log('  turbo iteration:', i, 'of', ticks);
+                console.log('  dyingTimer:', s.dyingTimer);
                 break;
             }
         }
