@@ -7,7 +7,6 @@ const UI = {
     pauseButton: { x: 0, y: 0, w: 0, h: 0 },
     saveButton: { x: 0, y: 0, w: 0, h: 0 },
     newGameButton: { x: 0, y: 0, w: 0, h: 0 },
-    testButton: { x: 0, y: 0, w: 0, h: 0 },
     achievementPopup: null,
     achievementTimer: 0,
 
@@ -262,15 +261,6 @@ const UI = {
         ctx.fillStyle = COLORS.UI_LIGHT;
         ctx.fillText('NEW', newX + btnW / 2, y + 15);
 
-        // Test mode button
-        const testX = newX - btnW - 8;
-        this.testButton = { x: testX, y, w: btnW, h: btnH };
-        ctx.fillStyle = Game.isTestMode ? 'rgba(212, 168, 67, 0.4)' : 'rgba(80, 60, 40, 0.6)';
-        ctx.fillRect(testX, y, btnW, btnH);
-        ctx.strokeStyle = COLORS.METAL;
-        ctx.strokeRect(testX, y, btnW, btnH);
-        ctx.fillStyle = Game.isTestMode ? COLORS.POWER : COLORS.UI_LIGHT;
-        ctx.fillText('TEST', testX + btnW / 2, y + 15);
         ctx.textAlign = 'left';
     },
 
@@ -478,11 +468,6 @@ const UI = {
         }
         if (this.isInside(x, y, this.newGameButton)) {
             Game.isTestMode = false;
-            Game.newGame();
-            return true;
-        }
-        if (this.testButton && this.isInside(x, y, this.testButton)) {
-            Game.isTestMode = true;
             Game.newGame();
             return true;
         }
