@@ -388,11 +388,21 @@ const Dialogue = {
             const maxVisibleChoices = 3;
             const totalChoices = this.choices.length;
 
+            // Show item count when there are more choices than visible
+            if (totalChoices > maxVisibleChoices) {
+                ctx.fillStyle = COLORS.METAL;
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText(`${this.choiceIndex + 1}/${totalChoices}  [W/S to scroll]`, boxW - 16, choiceY - 6);
+                ctx.textAlign = 'left';
+            }
+
             // Draw scroll-up indicator
             if (this.choiceScroll > 0) {
-                ctx.fillStyle = COLORS.METAL;
+                const blink = Math.floor(Date.now() / 500) % 2 === 0;
+                ctx.fillStyle = blink ? COLORS.POWER : COLORS.METAL;
                 ctx.font = '11px monospace';
-                ctx.fillText('  \u25B2 more', textX, choiceY - 6);
+                ctx.fillText('  \u25B2', textX, choiceY - 6);
             }
 
             for (let vi = 0; vi < maxVisibleChoices; vi++) {
@@ -411,9 +421,10 @@ const Dialogue = {
             // Draw scroll-down indicator
             if (this.choiceScroll + maxVisibleChoices < totalChoices) {
                 const bottomY = choiceY + maxVisibleChoices * 20 - 6;
-                ctx.fillStyle = COLORS.METAL;
+                const blink = Math.floor(Date.now() / 500) % 2 === 0;
+                ctx.fillStyle = blink ? COLORS.POWER : COLORS.METAL;
                 ctx.font = '11px monospace';
-                ctx.fillText('  \u25BC more', textX, bottomY);
+                ctx.fillText('  \u25BC more options below', textX, bottomY);
             }
         }
 
