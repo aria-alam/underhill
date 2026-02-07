@@ -539,43 +539,28 @@ const Autoplay = {
                 return false;
             }
 
-            // Search outward from PLAYER position (not HQ) — mimics real gameplay
-            // where you can only build on the tile you're facing
-            const pt = Player.getTile();
-            const cx = pt.col;
-            const cy = pt.row;
+            // Search from HQ outward for a valid spot
+            const hq = s.buildings[0];
+            if (!hq) { if (this._verbose) console.log('[Autoplay] No HQ found'); return false; }
+            const hcx = hq.col + 1;
+            const hcy = hq.row + 1;
 
-            // Collect NPC positions to avoid boxing them in
-            const npcPositions = [];
-            for (const npc of NPC.list) {
-                npcPositions.push({
-                    col: Math.floor(npc.x / TILE_SIZE),
-                    row: Math.floor(npc.y / TILE_SIZE),
-                });
-            }
-
-            // Spiral search from player — max range 8 tiles (realistic reach)
-            for (let dist = 1; dist < 8; dist++) {
+            for (let dist = 2; dist < 25; dist++) {
                 for (let dr = -dist; dr <= dist; dr++) {
                     for (let dc = -dist; dc <= dist; dc++) {
                         if (Math.abs(dr) !== dist && Math.abs(dc) !== dist) continue;
-                        const col = cx + dc;
-                        const row = cy + dr;
-
-                        // Skip tiles within 2 of player to avoid self-trapping
-                        if (Math.abs(col - cx) <= 1 && Math.abs(row - cy) <= 1) continue;
-
-                        // Skip tiles within 2 of any NPC
-                        let tooClose = false;
-                        for (const e of npcPositions) {
-                            if (Math.abs(col - e.col) <= 2 && Math.abs(row - e.row) <= 2) {
-                                tooClose = true;
-                                break;
-                            }
-                        }
-                        if (tooClose) continue;
+                        const col = hcx + dc;
+                        const row = hcy + dr;
 
                         if (Grid.canPlace(col, row, def.width, def.height)) {
+                            // Move player adjacent to build site first
+                            const adjacent = Grid.findWalkableNear(col, row, 2);
+                            if (adjacent) {
+                                Player.x = adjacent.col * TILE_SIZE;
+                                Player.y = adjacent.row * TILE_SIZE;
+                                Player.moveTarget = null;
+                            }
+
                             const ok = Buildings.place(s, type, col, row);
                             if (ok) {
                                 this._escapeIfTrapped();
@@ -588,7 +573,7 @@ const Autoplay = {
                     }
                 }
             }
-            if (this._verbose) console.log(`[Autoplay] No valid tile near player for ${type}`);
+            if (this._verbose) console.log(`[Autoplay] No valid tile for ${type} within dist 25`);
             return false;
         } catch (e) {
             this._bug('PLACE_ERROR', `Exception in _autoPlace(${type}): ${e.message}`, e);
