@@ -596,23 +596,58 @@ const Autoplay = {
     },
 
     _escapeIfTrapped() {
-        const pt = Player.getTile();
-        // Check if any of the 4 cardinal neighbors are walkable
-        const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
-        for (const [dc, dr] of dirs) {
-            const c = pt.col + dc;
-            const r = pt.row + dr;
-            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS && Grid.isWalkable(c, r)) {
-                return; // not trapped
+        // Buildings.place() already does BFS unstick, but as a safety net:
+        // Check ALL entities can escape colony area via BFS
+        const s = Game.state;
+        const hq = s.buildings[0];
+        if (!hq) return;
+
+        const entities = [Player, ...NPC.list];
+        for (const entity of entities) {
+            const eCol = Math.floor(entity.x / TILE_SIZE);
+            const eRow = Math.floor(entity.y / TILE_SIZE);
+            const hcx = hq.col + 1;
+            const hcy = hq.row + 1;
+            if (Math.abs(eCol - hcx) > 20 || Math.abs(eRow - hcy) > 20) continue;
+
+            // Quick BFS — can reach 12+ manhattan distance from HQ?
+            const visited = new Set();
+            const queue = [{ c: eCol, r: eRow }];
+            visited.add(eCol + ',' + eRow);
+            let escaped = false;
+            let steps = 0;
+            while (queue.length > 0 && steps < 400 && !escaped) {
+                const { c, r } = queue.shift();
+                steps++;
+                if (Math.abs(c - hcx) + Math.abs(r - hcy) > 12) { escaped = true; break; }
+                for (const [dc, dr] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+                    const nc = c + dc, nr = r + dr;
+                    const key = nc + ',' + nr;
+                    if (!visited.has(key) && nc >= 0 && nc < GRID_COLS &&
+                        nr >= 0 && nr < GRID_ROWS && Grid.isWalkable(nc, nr)) {
+                        visited.add(key);
+                        queue.push({ c: nc, r: nr });
+                    }
+                }
             }
-        }
-        // Trapped! Find nearest walkable tile and teleport
-        const safe = Grid.findWalkableNear(pt.col, pt.row, 10);
-        if (safe) {
-            Player.x = safe.col * TILE_SIZE;
-            Player.y = safe.row * TILE_SIZE;
-            Player.moveTarget = null;
-            if (this._verbose) console.log(`%c[Autoplay] Player was trapped — teleported to (${safe.col}, ${safe.row})`, 'color:#D4A843');
+            if (!escaped) {
+                // Teleport out
+                for (let d = 15; d < 40; d++) {
+                    for (const [dc, dr] of [[d,0],[-d,0],[0,d],[0,-d]]) {
+                        const tc = hcx + dc, tr = hcy + dr;
+                        if (tc >= 0 && tc < GRID_COLS && tr >= 0 && tr < GRID_ROWS &&
+                            Grid.isWalkable(tc, tr)) {
+                            entity.x = tc * TILE_SIZE;
+                            entity.y = tr * TILE_SIZE;
+                            if (entity.moveTarget) entity.moveTarget = null;
+                            const name = entity.name || 'Player';
+                            if (this._verbose) console.log(`%c[Autoplay] ${name} was trapped — teleported to (${tc}, ${tr})`, 'color:#D4A843');
+                            break;
+                        }
+                    }
+                    if (Math.abs(Math.floor(entity.x / TILE_SIZE) - hcx) > 10) break;
+                }
+            }
         }
     },
 

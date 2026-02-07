@@ -61,31 +61,43 @@ const Buildings = {
         }
 
         // Check if player or any NPC is now boxed in
-        this._unstickEntity(Player);
+        this._unstickEntity(Player, gameState);
         if (typeof NPC !== 'undefined') {
             for (const npc of NPC.list) {
-                this._unstickEntity(npc);
+                this._unstickEntity(npc, gameState);
             }
         }
 
         return true;
     },
 
-    // Check if an entity (Player or NPC) is enclosed and teleport them out
-    _unstickEntity(entity) {
+    // Check if an entity is enclosed by doing a BFS to see if they can
+    // reach a tile far from the colony center. If not, teleport them out.
+    _unstickEntity(entity, gameState) {
         const eCol = Math.floor(entity.x / TILE_SIZE);
         const eRow = Math.floor(entity.y / TILE_SIZE);
+        const hq = gameState.buildings[0];
+        if (!hq) return;
+        const hcx = hq.col + 1;
+        const hcy = hq.row + 1;
 
-        // BFS: count reachable walkable tiles (cap at 20 steps for perf)
+        // If already far from colony center, no risk of being boxed
+        if (Math.abs(eCol - hcx) > 20 || Math.abs(eRow - hcy) > 20) return;
+
+        // BFS: can the entity reach a tile 18+ manhattan distance from HQ?
         const visited = new Set();
         const queue = [{ c: eCol, r: eRow }];
         visited.add(eCol + ',' + eRow);
-        let reachable = 0;
-        const MIN_OPEN = 15;
+        let escaped = false;
+        let steps = 0;
 
-        while (queue.length > 0 && reachable < MIN_OPEN) {
+        while (queue.length > 0 && steps < 800 && !escaped) {
             const { c, r } = queue.shift();
-            reachable++;
+            steps++;
+            if (Math.abs(c - hcx) + Math.abs(r - hcy) > 18) {
+                escaped = true;
+                break;
+            }
             for (const [dc, dr] of [[0,-1],[0,1],[-1,0],[1,0]]) {
                 const nc = c + dc;
                 const nr = r + dr;
@@ -98,38 +110,24 @@ const Buildings = {
             }
         }
 
-        if (reachable >= MIN_OPEN) return; // enough open space
+        if (escaped) return;
 
-        // Enclosed — teleport to open area away from colony center
-        const hq = this._getHQ();
-        if (hq) {
-            // Search outward from HQ for a tile with lots of open space
-            for (let d = 8; d < 30; d++) {
-                for (const [dc, dr] of [[d,0],[-d,0],[0,d],[0,-d]]) {
-                    const safe = Grid.findWalkableNear(hq.col + dc, hq.row + dr, 3);
-                    if (safe) {
-                        entity.x = safe.col * TILE_SIZE;
-                        entity.y = safe.row * TILE_SIZE;
-                        if (entity.moveTarget) entity.moveTarget = null;
-                        return;
-                    }
+        // Trapped — teleport far from colony
+        const name = entity.name || 'Player';
+        console.log(`[Buildings] ${name} trapped at (${eCol},${eRow}) — teleporting out`);
+        for (let d = 15; d < 40; d++) {
+            for (const [dc, dr] of [[d,0],[-d,0],[0,d],[0,-d],[d,d],[-d,d],[d,-d],[-d,-d]]) {
+                const tc = hcx + dc;
+                const tr = hcy + dr;
+                if (tc >= 0 && tc < GRID_COLS && tr >= 0 && tr < GRID_ROWS &&
+                    Grid.isWalkable(tc, tr)) {
+                    entity.x = tc * TILE_SIZE;
+                    entity.y = tr * TILE_SIZE;
+                    if (entity.moveTarget) entity.moveTarget = null;
+                    return;
                 }
             }
         }
-        // Fallback
-        const safe = Grid.findWalkableNear(eCol, eRow, 15);
-        if (safe) {
-            entity.x = safe.col * TILE_SIZE;
-            entity.y = safe.row * TILE_SIZE;
-            if (entity.moveTarget) entity.moveTarget = null;
-        }
-    },
-
-    _getHQ() {
-        if (Game && Game.state && Game.state.buildings.length > 0) {
-            return Game.state.buildings[0]; // HQ is always first
-        }
-        return null;
     },
 
     // Remove a building (e.g., meteor strike)
