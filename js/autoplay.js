@@ -452,9 +452,9 @@ const Autoplay = {
                 toBuild = BUILDING.LANDING_PAD;
                 reason = 'no landing pad';
             }
-            else if (pop >= s.popCapacity && mat >= 30) {
+            else if ((pop >= s.popCapacity || s.popCapacity - pop < 3) && mat >= 30) {
                 toBuild = BUILDING.HABITAT;
-                reason = `pop ${pop} >= cap ${s.popCapacity}`;
+                reason = `pop ${pop}, cap ${s.popCapacity} — need housing`;
             }
             // === Growth: more power ===
             else if (netPwr < 5 && mat >= 10) {
@@ -653,11 +653,31 @@ const Autoplay = {
             }
             const sp = (s.solTime % SOL_DURATION) / SOL_DURATION;
             s.isNighttime = sp > 0.80 || sp < 0.05;
+
+            // Update peak population each tick so tiers unlock during turbo
+            Game.updatePeakPopulation();
+
+            // Actively spawn colonists every ~30 game-seconds if conditions allow
+            if (i % 30 === 0 && Buildings.hasLandingPad(s) &&
+                s.resources[RESOURCE.POPULATION] < s.popCapacity &&
+                s.resources[RESOURCE.FOOD] > 5 && s.resources[RESOURCE.WATER] > 5 &&
+                s.resources[RESOURCE.OXYGEN] > 5) {
+                const added = Resources.addColonists(s, 2);
+                for (let j = 0; j < added; j++) {
+                    const npc = NPC.spawn(s);
+                    if (npc) {
+                        const faction = WorkSystem.assignFaction(s);
+                        npc.faction = faction;
+                        npc.suitColor = FACTION_COLORS[faction];
+                        npc.idleLines = WorkSystem.getIdleLines(faction);
+                    }
+                }
+            }
+
             // Stop early if game over
             if (s.gameOver) break;
         }
         Grid.greeningDirty = true;
-        Game.updatePeakPopulation();
     },
 
     // ==================== Player Movement ====================
