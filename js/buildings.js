@@ -71,25 +71,65 @@ const Buildings = {
         return true;
     },
 
-    // Check if an entity (Player or NPC) is boxed in and teleport them out
+    // Check if an entity (Player or NPC) is enclosed and teleport them out
     _unstickEntity(entity) {
         const eCol = Math.floor(entity.x / TILE_SIZE);
         const eRow = Math.floor(entity.y / TILE_SIZE);
-        const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
-        for (const [dc, dr] of dirs) {
-            const c = eCol + dc;
-            const r = eRow + dr;
-            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS && Grid.isWalkable(c, r)) {
-                return; // has at least one exit
+
+        // BFS: count reachable walkable tiles (cap at 20 steps for perf)
+        const visited = new Set();
+        const queue = [{ c: eCol, r: eRow }];
+        visited.add(eCol + ',' + eRow);
+        let reachable = 0;
+        const MIN_OPEN = 15;
+
+        while (queue.length > 0 && reachable < MIN_OPEN) {
+            const { c, r } = queue.shift();
+            reachable++;
+            for (const [dc, dr] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+                const nc = c + dc;
+                const nr = r + dr;
+                const key = nc + ',' + nr;
+                if (!visited.has(key) && nc >= 0 && nc < GRID_COLS &&
+                    nr >= 0 && nr < GRID_ROWS && Grid.isWalkable(nc, nr)) {
+                    visited.add(key);
+                    queue.push({ c: nc, r: nr });
+                }
             }
         }
-        // Boxed in — find nearest walkable tile
-        const safe = Grid.findWalkableNear(eCol, eRow, 10);
+
+        if (reachable >= MIN_OPEN) return; // enough open space
+
+        // Enclosed — teleport to open area away from colony center
+        const hq = this._getHQ();
+        if (hq) {
+            // Search outward from HQ for a tile with lots of open space
+            for (let d = 8; d < 30; d++) {
+                for (const [dc, dr] of [[d,0],[-d,0],[0,d],[0,-d]]) {
+                    const safe = Grid.findWalkableNear(hq.col + dc, hq.row + dr, 3);
+                    if (safe) {
+                        entity.x = safe.col * TILE_SIZE;
+                        entity.y = safe.row * TILE_SIZE;
+                        if (entity.moveTarget) entity.moveTarget = null;
+                        return;
+                    }
+                }
+            }
+        }
+        // Fallback
+        const safe = Grid.findWalkableNear(eCol, eRow, 15);
         if (safe) {
             entity.x = safe.col * TILE_SIZE;
             entity.y = safe.row * TILE_SIZE;
             if (entity.moveTarget) entity.moveTarget = null;
         }
+    },
+
+    _getHQ() {
+        if (Game && Game.state && Game.state.buildings.length > 0) {
+            return Game.state.buildings[0]; // HQ is always first
+        }
+        return null;
     },
 
     // Remove a building (e.g., meteor strike)

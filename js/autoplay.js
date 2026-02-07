@@ -563,10 +563,10 @@ const Autoplay = {
                         const col = cx + dc;
                         const row = cy + dr;
 
-                        // Skip tiles adjacent to any entity to avoid trapping them
+                        // Skip tiles within 2 of any entity to avoid trapping them
                         let tooClose = false;
                         for (const e of occupied) {
-                            if (Math.abs(col - e.col) <= 1 && Math.abs(row - e.row) <= 1) {
+                            if (Math.abs(col - e.col) <= 2 && Math.abs(row - e.row) <= 2) {
                                 tooClose = true;
                                 break;
                             }
