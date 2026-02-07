@@ -177,42 +177,31 @@ const Autoplay = {
     // ==================== Setup & Dialogue Handling ====================
 
     _skipSetup(mode) {
-        // ---- 0. Delete any saved game so we start completely fresh ----
-        Save.deleteSave();
+        // ---- 1. Force a completely fresh game ----
+        Game.isTestMode = false;
+        Game.newGame();
+        // newGame() shows intro dialogue — kill it immediately
 
-        // ---- 1. Kill ALL dialogue state aggressively ----
-        // Null out every callback before calling close() so chains don't fire
+        // ---- 2. Kill ALL dialogue state ----
         Dialogue.onClose = null;
         Dialogue.nameCallback = null;
         Dialogue.choices = null;
         Dialogue.isNameEntry = false;
         Dialogue.isBuildMenu = false;
-        Dialogue.active = false; // force inactive without firing close() callbacks
+        Dialogue.active = false;
 
-        // ---- 2. Unpause and reset game-over state ----
+        // ---- 3. Unpause ----
         Game.state.paused = false;
-        Game.state.gameOver = false;
-        Game.state.gameOverReason = '';
-        Game.state.hadPopulation = false;
-        Game.state.dyingTimer = 0;
 
-        // ---- 3. Set player identity if not set ----
-        if (!Player.name || Player.name === 'Commander') {
-            Player.name = 'Autoplay Bot';
-            Player.gender = 'female';
-            Player.portrait = PORTRAITS.PLAYER_FEMALE;
-        }
+        // ---- 4. Set player identity ----
+        Player.name = 'Autoplay Bot';
+        Player.gender = 'female';
+        Player.portrait = PORTRAITS.PLAYER_FEMALE;
 
-        // ---- 4. Set colony mode ----
+        // ---- 5. Set colony mode ----
         Game.state.colonyMode = mode;
 
-        // ---- 5. Reset NPC talking state but KEEP dialogue queues ----
-        // (so Dr. Kimura's intro tutorial still plays)
-        for (const npc of NPC.list) {
-            if (npc.state === 'talking') npc.state = 'idle';
-        }
-
-        // Update Dr. Kimura's faction for the mode
+        // ---- 6. Update Dr. Kimura's faction for the mode ----
         const kimura = NPC.list.find(n => n.name === 'Dr. Kimura');
         if (kimura) {
             if (mode === 'conflict') {
@@ -224,14 +213,11 @@ const Autoplay = {
             }
         }
 
-        // ---- 6. Skip initial night so solar panels work immediately ----
-        if (Game.state.sol <= 1 && Game.state.solTime < SOL_DURATION * 0.15) {
-            Game.state.solTime = SOL_DURATION * 0.15; // jump to morning
-            Game.state.isNighttime = false;
-            console.log('%c[Autoplay] Skipped initial night → starting at dawn', 'color:#D4A843');
-        }
+        // ---- 7. Skip initial night so solar panels work immediately ----
+        Game.state.solTime = SOL_DURATION * 0.15;
+        Game.state.isNighttime = false;
 
-        console.log(`%c[Autoplay] Setup complete — mode: ${mode}, player: ${Player.name}, buildings: ${Game.state.buildings.length}, mat: ${Game.state.resources[RESOURCE.MATERIALS]}`, 'color:#6B8E5A');
+        console.log(`%c[Autoplay] Fresh game started — mode: ${mode}, buildings: ${Game.state.buildings.length}, mat: ${Game.state.resources[RESOURCE.MATERIALS]}`, 'color:#6B8E5A');
     },
 
     _handleDialogue() {
