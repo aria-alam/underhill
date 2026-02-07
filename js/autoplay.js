@@ -642,9 +642,20 @@ const Autoplay = {
     _fastForward(seconds) {
         const s = Game.state;
         const ticks = Math.floor(seconds / RESOURCE_TICK);
+
+        // Pause destructive events during turbo — meteors/storms at 60x would
+        // obliterate the colony. Only tick time, resources, and colonist spawns.
+        const savedEventTimer = Events.nextEventTimer;
+        const savedActiveEvents = [...Events.activeEvents];
+
         for (let i = 0; i < ticks; i++) {
             Resources.tick(s);
+
+            // Only process existing active events (repairs, storm endings),
+            // don't trigger NEW random events during turbo
+            Events.nextEventTimer = 9999;
             Events.update(s, RESOURCE_TICK);
+
             s.solTime += RESOURCE_TICK;
             s.time += RESOURCE_TICK;
             if (s.solTime >= SOL_DURATION) {
@@ -677,6 +688,9 @@ const Autoplay = {
             // Stop early if game over
             if (s.gameOver) break;
         }
+
+        // Restore event timer so normal events resume between turbo ticks
+        Events.nextEventTimer = savedEventTimer;
         Grid.greeningDirty = true;
     },
 
