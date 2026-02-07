@@ -197,8 +197,25 @@ const Input = {
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
 
-            // UI buttons always work (pause, save, new, test)
-            if (UI.handleClick(x, y, this.gameState)) continue;
+            // If paused (and no dialogue), tap anywhere to unpause
+            if (this.gameState.paused && !Dialogue.active) {
+                // Only check pause button — tap it to unpause
+                if (UI.isInside(x, y, UI.pauseButton)) {
+                    this.gameState.paused = false;
+                }
+                // Also allow tapping center of screen to unpause
+                const cx = rect.width / 2;
+                const cy = rect.height / 2;
+                if (Math.abs(x - cx) < 120 && Math.abs(y - cy) < 60) {
+                    this.gameState.paused = false;
+                }
+                continue;
+            }
+
+            // UI buttons — only check if touch is in the top HUD area
+            if (y < 100) {
+                if (UI.handleClick(x, y, this.gameState)) continue;
+            }
 
             // Check dialogue tap
             if (Dialogue.active) {
@@ -206,27 +223,29 @@ const Input = {
                 continue;
             }
 
-            // Check interact button
+            // Check interact button first (bottom-right)
             if (this._isInRect(x, y, this.interactBtn)) {
                 this.interactPressed = true;
                 Interaction.execute(this.gameState);
                 continue;
             }
 
-            // Check D-pad
+            // Check D-pad (bottom-left)
             const dpad = this._getDpadDir(x, y);
             if (dpad) {
                 this.dpadDir = dpad;
                 continue;
             }
 
-            // Tap-to-move on grid (convert screen coords to world coords via camera)
-            const worldX = x + Renderer.cameraX;
-            const worldY = y + Renderer.cameraY;
-            if (worldX >= 0 && worldY >= 0 && worldX < GRID_COLS * TILE_SIZE && worldY < GRID_ROWS * TILE_SIZE) {
-                const col = Math.floor(worldX / TILE_SIZE);
-                const row = Math.floor(worldY / TILE_SIZE);
-                Player.moveTarget = { x: col * TILE_SIZE, y: row * TILE_SIZE };
+            // Tap-to-move on grid (only in the middle area, not near controls)
+            if (y < rect.height - 200 && y > 100) {
+                const worldX = x + Renderer.cameraX;
+                const worldY = y + Renderer.cameraY;
+                if (worldX >= 0 && worldY >= 0 && worldX < GRID_COLS * TILE_SIZE && worldY < GRID_ROWS * TILE_SIZE) {
+                    const col = Math.floor(worldX / TILE_SIZE);
+                    const row = Math.floor(worldY / TILE_SIZE);
+                    Player.moveTarget = { x: col * TILE_SIZE, y: row * TILE_SIZE };
+                }
             }
         }
     },

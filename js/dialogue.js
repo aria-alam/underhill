@@ -319,8 +319,9 @@ const Dialogue = {
     },
 
     _renderDialogue(ctx, canvasW, canvasH) {
-        const boxH = 120;
-        const boxY = canvasH - boxH;
+        const isMobile = Input.isTouchDevice;
+        const boxH = isMobile ? 140 : 120;
+        const boxY = isMobile ? canvasH - boxH - 180 : canvasH - boxH;
         const boxX = 0;
         const boxW = canvasW;
         this.boxRect = { x: boxX, y: boxY, w: boxW, h: boxH };
@@ -444,8 +445,9 @@ const Dialogue = {
     },
 
     _renderNameEntry(ctx, canvasW, canvasH) {
+        const isMobile = Input.isTouchDevice;
         const boxH = 120;
-        const boxY = canvasH - boxH;
+        const boxY = isMobile ? canvasH - boxH - 180 : canvasH - boxH;
         const boxX = 0;
         const boxW = canvasW;
         this.boxRect = { x: boxX, y: boxY, w: boxW, h: boxH };
@@ -499,8 +501,9 @@ const Dialogue = {
     },
 
     _renderBuildMenu(ctx, canvasW, canvasH) {
+        const isMobile = Input.isTouchDevice;
         const boxH = 200;
-        const boxY = canvasH - boxH;
+        const boxY = isMobile ? canvasH - boxH - 180 : canvasH - boxH;
         const boxW = canvasW;
         this.boxRect = { x: 0, y: boxY, w: boxW, h: boxH };
 

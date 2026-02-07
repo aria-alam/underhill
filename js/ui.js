@@ -78,7 +78,8 @@ const UI = {
     },
 
     drawResourceBar(ctx, gameState, canvasW) {
-        const barH = 52;
+        const isMobile = Input.isTouchDevice;
+        const barH = isMobile ? 42 : 52;
         ctx.fillStyle = 'rgba(44, 24, 16, 0.92)';
         ctx.fillRect(0, 0, canvasW, barH);
 
@@ -324,55 +325,103 @@ const UI = {
     },
 
     drawPauseButton(ctx, gameState, canvasW) {
-        const btnW = 60;
-        const btnH = 22;
-        const x = canvasW - btnW - 10;
-        const y = 140;
-        this.pauseButton = { x, y, w: btnW, h: btnH };
+        const isMobile = Input.isTouchDevice;
+        const btnW = isMobile ? 48 : 60;
+        const btnH = isMobile ? 28 : 22;
+        const gap = isMobile ? 4 : 8;
 
-        ctx.fillStyle = gameState.paused ? COLORS.DANGER : 'rgba(80, 60, 40, 0.6)';
-        ctx.fillRect(x, y, btnW, btnH);
-        ctx.strokeStyle = COLORS.METAL;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, btnW, btnH);
+        if (isMobile) {
+            // Mobile: compact row at top-left, below resource bar
+            const startX = 8;
+            const y = 56;
 
-        ctx.fillStyle = COLORS.UI_LIGHT;
-        ctx.font = '11px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(gameState.paused ? 'PLAY' : 'PAUSE', x + btnW / 2, y + 15);
+            // Pause
+            this.pauseButton = { x: startX, y, w: btnW, h: btnH };
+            ctx.fillStyle = gameState.paused ? COLORS.DANGER : 'rgba(80, 60, 40, 0.8)';
+            ctx.fillRect(startX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(startX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(gameState.paused ? 'PLAY' : 'II', startX + btnW / 2, y + 19);
 
-        // Save button
-        const saveX = x - btnW - 8;
-        this.saveButton = { x: saveX, y, w: btnW, h: btnH };
-        ctx.fillStyle = 'rgba(80, 60, 40, 0.6)';
-        ctx.fillRect(saveX, y, btnW, btnH);
-        ctx.strokeStyle = COLORS.METAL;
-        ctx.strokeRect(saveX, y, btnW, btnH);
-        ctx.fillStyle = COLORS.UI_LIGHT;
-        ctx.fillText('SAVE', saveX + btnW / 2, y + 15);
+            // Save
+            const saveX = startX + btnW + gap;
+            this.saveButton = { x: saveX, y, w: btnW, h: btnH };
+            ctx.fillStyle = 'rgba(80, 60, 40, 0.8)';
+            ctx.fillRect(saveX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.strokeRect(saveX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText('SAVE', saveX + btnW / 2, y + 19);
 
-        // New game button
-        const newX = saveX - btnW - 8;
-        this.newGameButton = { x: newX, y, w: btnW, h: btnH };
-        ctx.fillStyle = 'rgba(80, 60, 40, 0.6)';
-        ctx.fillRect(newX, y, btnW, btnH);
-        ctx.strokeStyle = COLORS.METAL;
-        ctx.strokeRect(newX, y, btnW, btnH);
-        ctx.fillStyle = COLORS.UI_LIGHT;
-        ctx.fillText('NEW', newX + btnW / 2, y + 15);
+            // Mute
+            const muteX = saveX + btnW + gap;
+            this.muteButton = { x: muteX, y, w: btnW, h: btnH };
+            const isMuted = typeof Music !== 'undefined' && Music.muted;
+            ctx.fillStyle = isMuted ? COLORS.DANGER : 'rgba(80, 60, 40, 0.8)';
+            ctx.fillRect(muteX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.strokeRect(muteX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText(isMuted ? 'VOL' : 'MUTE', muteX + btnW / 2, y + 19);
 
-        // Mute button
-        const muteX = newX - btnW - 8;
-        this.muteButton = { x: muteX, y, w: btnW, h: btnH };
-        const isMuted = typeof Music !== 'undefined' && Music.muted;
-        ctx.fillStyle = isMuted ? COLORS.DANGER : 'rgba(80, 60, 40, 0.6)';
-        ctx.fillRect(muteX, y, btnW, btnH);
-        ctx.strokeStyle = COLORS.METAL;
-        ctx.strokeRect(muteX, y, btnW, btnH);
-        ctx.fillStyle = COLORS.UI_LIGHT;
-        ctx.fillText(isMuted ? 'UNMUTE' : 'MUTE', muteX + btnW / 2, y + 15);
+            // Hide new game button on mobile (accessible via browser refresh)
+            this.newGameButton = { x: -100, y: -100, w: 0, h: 0 };
 
-        ctx.textAlign = 'left';
+            ctx.textAlign = 'left';
+        } else {
+            // Desktop: top-right row
+            const x = canvasW - btnW - 10;
+            const y = 140;
+            this.pauseButton = { x, y, w: btnW, h: btnH };
+
+            ctx.fillStyle = gameState.paused ? COLORS.DANGER : 'rgba(80, 60, 40, 0.6)';
+            ctx.fillRect(x, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, btnW, btnH);
+
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.font = '11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(gameState.paused ? 'PLAY' : 'PAUSE', x + btnW / 2, y + 15);
+
+            // Save button
+            const saveX = x - btnW - gap;
+            this.saveButton = { x: saveX, y, w: btnW, h: btnH };
+            ctx.fillStyle = 'rgba(80, 60, 40, 0.6)';
+            ctx.fillRect(saveX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.strokeRect(saveX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText('SAVE', saveX + btnW / 2, y + 15);
+
+            // New game button
+            const newX = saveX - btnW - gap;
+            this.newGameButton = { x: newX, y, w: btnW, h: btnH };
+            ctx.fillStyle = 'rgba(80, 60, 40, 0.6)';
+            ctx.fillRect(newX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.strokeRect(newX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText('NEW', newX + btnW / 2, y + 15);
+
+            // Mute button
+            const muteX = newX - btnW - gap;
+            this.muteButton = { x: muteX, y, w: btnW, h: btnH };
+            const isMuted = typeof Music !== 'undefined' && Music.muted;
+            ctx.fillStyle = isMuted ? COLORS.DANGER : 'rgba(80, 60, 40, 0.6)';
+            ctx.fillRect(muteX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.strokeRect(muteX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText(isMuted ? 'UNMUTE' : 'MUTE', muteX + btnW / 2, y + 15);
+
+            ctx.textAlign = 'left';
+        }
     },
 
     drawInteractHint(ctx, gameState, canvasW, canvasH) {
@@ -397,44 +446,68 @@ const UI = {
     },
 
     drawMobileControls(ctx, canvasW, canvasH) {
-        // D-pad (bottom-left)
-        const dpadX = 80;
-        const dpadY = canvasH - 100;
-        const r = 40;
+        // D-pad (bottom-left) — larger, more visible
+        const dpadX = 90;
+        const dpadY = canvasH - 120;
+        const r = 55;
         Input.dpadCenter = { x: dpadX, y: dpadY };
         Input.dpadRadius = r;
 
-        // D-pad background circle
-        ctx.globalAlpha = 0.35;
+        // D-pad outer ring
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#2C1810';
+        ctx.beginPath();
+        ctx.arc(dpadX, dpadY, r + 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // D-pad inner background
+        ctx.globalAlpha = 0.6;
         ctx.fillStyle = '#4A3828';
         ctx.beginPath();
-        ctx.arc(dpadX, dpadY, r + 10, 0, Math.PI * 2);
+        ctx.arc(dpadX, dpadY, r + 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Direction arrows
-        const arrowColor = 'rgba(245, 230, 211, 0.6)';
-        ctx.fillStyle = arrowColor;
-        ctx.font = 'bold 20px monospace';
+        // Direction arrows — larger, brighter
+        ctx.fillStyle = 'rgba(245, 230, 211, 0.85)';
+        ctx.font = 'bold 26px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('▲', dpadX, dpadY - r + 14);
-        ctx.fillText('▼', dpadX, dpadY + r - 2);
-        ctx.fillText('◀', dpadX - r + 6, dpadY + 7);
-        ctx.fillText('▶', dpadX + r - 6, dpadY + 7);
+        ctx.fillText('▲', dpadX, dpadY - r + 20);
+        ctx.fillText('▼', dpadX, dpadY + r - 8);
+        ctx.fillText('◀', dpadX - r + 10, dpadY + 9);
+        ctx.fillText('▶', dpadX + r - 10, dpadY + 9);
 
         // Center dot
-        ctx.fillStyle = 'rgba(245, 230, 211, 0.3)';
+        ctx.fillStyle = 'rgba(245, 230, 211, 0.4)';
         ctx.beginPath();
-        ctx.arc(dpadX, dpadY, 8, 0, Math.PI * 2);
+        ctx.arc(dpadX, dpadY, 10, 0, Math.PI * 2);
         ctx.fill();
 
-        // Interact button (bottom-right)
-        const btnSize = 56;
-        const btnX = canvasW - btnSize - 24;
-        const btnY = canvasH - btnSize - 70;
+        // Active direction highlight
+        if (Input.dpadDir) {
+            ctx.fillStyle = 'rgba(212, 168, 67, 0.4)';
+            const hx = Input.dpadDir === 'left' ? -r/2 : Input.dpadDir === 'right' ? r/2 : 0;
+            const hy = Input.dpadDir === 'up' ? -r/2 : Input.dpadDir === 'down' ? r/2 : 0;
+            ctx.beginPath();
+            ctx.arc(dpadX + hx, dpadY + hy, 20, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Interact button (bottom-right) — larger, clearer label
+        const btnSize = 70;
+        const btnX = canvasW - btnSize - 30;
+        const btnY = canvasH - btnSize - 90;
         Input.interactBtn = { x: btnX, y: btnY, w: btnSize, h: btnSize };
 
+        // Outer ring
         ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#2C1810';
+        ctx.beginPath();
+        ctx.arc(btnX + btnSize / 2, btnY + btnSize / 2, btnSize / 2 + 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Button fill
+        ctx.globalAlpha = 0.7;
         ctx.fillStyle = COLORS.POWER;
         ctx.beginPath();
         ctx.arc(btnX + btnSize / 2, btnY + btnSize / 2, btnSize / 2, 0, Math.PI * 2);
@@ -442,9 +515,9 @@ const UI = {
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = COLORS.UI_DARK;
-        ctx.font = 'bold 18px monospace';
+        ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('E', btnX + btnSize / 2, btnY + btnSize / 2 + 6);
+        ctx.fillText('ACT', btnX + btnSize / 2, btnY + btnSize / 2 + 5);
         ctx.textAlign = 'left';
     },
 
@@ -539,7 +612,8 @@ const UI = {
         ctx.textAlign = 'center';
         ctx.fillText('PAUSED', canvasW / 2, canvasH / 2);
         ctx.font = '13px monospace';
-        ctx.fillText('Press P or ESC to resume', canvasW / 2, canvasH / 2 + 30);
+        const resumeText = Input.isTouchDevice ? 'Tap here to resume' : 'Press P or ESC to resume';
+        ctx.fillText(resumeText, canvasW / 2, canvasH / 2 + 30);
         ctx.textAlign = 'left';
     },
 
