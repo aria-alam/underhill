@@ -43,6 +43,7 @@ const Autoplay = {
         const speed = options.speed || 1;       // 1 = normal, 2 = 2x, etc.
         const maxSols = options.maxSols || 50;   // stop after N sols
         const silent = options.silent || false;
+        this._turbo = options.turbo || 0;        // fast-forward N game-seconds per tick
 
         this.active = true;
         this.tickCount = 0;
@@ -106,6 +107,11 @@ const Autoplay = {
             this._makeDecision();
             this._movePlayer();
 
+            // Turbo: fast-forward game simulation
+            if (this._turbo > 0) {
+                this._fastForward(this._turbo);
+            }
+
             // Periodic status log (every 20 ticks / ~10s)
             if (this._verbose && this.tickCount % 20 === 0) {
                 const solPct = ((Game.state.solTime % SOL_DURATION) / SOL_DURATION * 100).toFixed(0);
@@ -140,7 +146,13 @@ const Autoplay = {
         };
         requestAnimationFrame(this._fpsMonitor);
 
-        console.log(`%c[Autoplay] Started%c — speed: ${speed}x, max: ${maxSols} sols`, 'color:#27AE60;font-weight:bold', '');
+        if (this._turbo > 0) {
+            const secsPerSol = 150 / (speed * this._turbo);
+            const estMinutes = (maxSols * secsPerSol / 60).toFixed(1);
+            console.log(`%c[Autoplay] Started%c — speed: ${speed}x, turbo: ${this._turbo}s/tick, max: ${maxSols} sols (~${estMinutes} min)`, 'color:#27AE60;font-weight:bold', '');
+        } else {
+            console.log(`%c[Autoplay] Started%c — speed: ${speed}x, max: ${maxSols} sols`, 'color:#27AE60;font-weight:bold', '');
+        }
         console.log('  Autoplay.stop()   — stop and print report');
         console.log('  Autoplay.report() — print report without stopping');
         console.log('  Autoplay.bugs     — raw bug array');
@@ -533,10 +545,15 @@ const Autoplay = {
             const cx = hq.col + 1;
             const cy = hq.row + 1;
 
-            // Player tile — avoid building right next to them (prevents boxing in)
+            // Collect positions of player + all NPCs to avoid boxing anyone in
             const pt = Player.getTile();
-            const playerCol = pt.col;
-            const playerRow = pt.row;
+            const occupied = [{ col: pt.col, row: pt.row }];
+            for (const npc of NPC.list) {
+                occupied.push({
+                    col: Math.floor(npc.x / TILE_SIZE),
+                    row: Math.floor(npc.y / TILE_SIZE),
+                });
+            }
 
             // Spiral search
             for (let dist = 2; dist < 25; dist++) {
@@ -546,8 +563,15 @@ const Autoplay = {
                         const col = cx + dc;
                         const row = cy + dr;
 
-                        // Skip tiles within 2 of the player to avoid trapping them
-                        if (Math.abs(col - playerCol) <= 1 && Math.abs(row - playerRow) <= 1) continue;
+                        // Skip tiles adjacent to any entity to avoid trapping them
+                        let tooClose = false;
+                        for (const e of occupied) {
+                            if (Math.abs(col - e.col) <= 1 && Math.abs(row - e.row) <= 1) {
+                                tooClose = true;
+                                break;
+                            }
+                        }
+                        if (tooClose) continue;
 
                         if (Grid.canPlace(col, row, def.width, def.height)) {
                             const ok = Buildings.place(s, type, col, row);
@@ -590,6 +614,28 @@ const Autoplay = {
             Player.moveTarget = null;
             if (this._verbose) console.log(`%c[Autoplay] Player was trapped — teleported to (${safe.col}, ${safe.row})`, 'color:#D4A843');
         }
+    },
+
+    // ==================== Turbo Fast-Forward ====================
+
+    _fastForward(seconds) {
+        const s = Game.state;
+        const ticks = Math.floor(seconds / RESOURCE_TICK);
+        for (let i = 0; i < ticks; i++) {
+            Resources.tick(s);
+            s.solTime += RESOURCE_TICK;
+            s.time += RESOURCE_TICK;
+            if (s.solTime >= SOL_DURATION) {
+                s.solTime -= SOL_DURATION;
+                s.sol++;
+            }
+            // Stop early if game over
+            if (s.gameOver) break;
+        }
+        const solProgress = (s.solTime % SOL_DURATION) / SOL_DURATION;
+        s.isNighttime = solProgress > 0.80 || solProgress < 0.05;
+        Grid.greeningDirty = true;
+        Game.updatePeakPopulation();
     },
 
     // ==================== Player Movement ====================
