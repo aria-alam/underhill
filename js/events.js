@@ -74,6 +74,7 @@ const Events = {
                 Renderer.dustStormAlpha = 1;
                 this.activeEvents.push({ type, timer: config.duration });
                 this.notifyThroughNPC(gameState, [config.message], 'warning');
+                if (typeof Music !== 'undefined') Music.playSFX('dust_storm');
                 break;
 
             case EVENT_TYPE.MALFUNCTION: {
@@ -100,6 +101,7 @@ const Events = {
                     ['Incoming meteor detected!', 'A building is in danger!'],
                     'danger'
                 );
+                if (typeof Music !== 'undefined') Music.playSFX('meteor_warning');
                 break;
             }
 
@@ -112,6 +114,7 @@ const Events = {
                     ['A supply ship just dropped extra materials!', `+${config.materialsBonus} materials received.`],
                     'success'
                 );
+                if (typeof Music !== 'undefined') Music.playSFX('supply_drop');
                 break;
 
             case EVENT_TYPE.NEW_COLONISTS: {
@@ -131,6 +134,7 @@ const Events = {
                         [`${added} new colonists have arrived!`, 'Welcome to the colony!'],
                         'success'
                     );
+                    if (typeof Music !== 'undefined') Music.playSFX('colonist_arrive');
                 }
                 break;
             }
@@ -146,6 +150,7 @@ const Events = {
             const name = BUILDING_DEFS[target.type].name;
             Buildings.remove(gameState, target.id);
             this.notifyThroughNPC(gameState, [`The meteor destroyed the ${name}!`], 'danger');
+            if (typeof Music !== 'undefined') Music.playSFX('meteor_hit');
         }
     },
 
@@ -165,6 +170,7 @@ const Events = {
                         [`${BUILDING_DEFS[building.type].name} has been repaired.`],
                         'success'
                     );
+                    if (typeof Music !== 'undefined') Music.playSFX('repair');
                 }
                 break;
             }
@@ -179,6 +185,7 @@ const Events = {
                         [`${BUILDING_DEFS[building.type].name} has been repaired after sabotage.`],
                         'success'
                     );
+                    if (typeof Music !== 'undefined') Music.playSFX('repair');
                 }
                 break;
             }

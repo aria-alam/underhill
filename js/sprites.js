@@ -108,6 +108,56 @@ SPRITES.GRAVEL = [
     [ 1,14,13, 1, 1,14,13, 1],
 ];
 
+// --- Vegetation Overlays (rendered at reduced alpha over terrain) ---
+
+// Lichen — subtle green dots on transparent base
+SPRITES.LICHEN = [
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 4, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 4, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 4, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 4, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 4],
+    [ 0, 0, 4, 0, 0, 0, 0, 0],
+];
+
+// Shrub — small bush shape with green + habitat green
+SPRITES.SHRUB = [
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 4, 0, 0, 0, 0],
+    [ 0, 0, 4,15, 4, 0, 0, 0],
+    [ 0, 0, 4, 4, 4, 0, 0, 0],
+    [ 0, 0, 0, 4, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+];
+
+// Grass — denser ground cover patches
+SPRITES.GRASS = [
+    [ 0, 0, 4, 0, 0, 0, 0, 0],
+    [ 0, 4,15, 0, 0, 4, 0, 0],
+    [ 0, 0, 4, 0, 4,15, 4, 0],
+    [ 0, 0, 0, 4, 0, 4, 0, 0],
+    [ 4, 0, 0,15, 4, 0, 0, 4],
+    [ 0, 4, 4, 4, 0, 0, 4, 0],
+    [ 0, 0, 4, 0, 0, 4,15, 0],
+    [ 0, 0, 0, 0, 4, 0, 0, 0],
+];
+
+// Small Tree — trunk with green canopy
+SPRITES.SMALL_TREE = [
+    [ 0, 0, 0, 4, 4, 0, 0, 0],
+    [ 0, 0, 4, 4, 4, 4, 0, 0],
+    [ 0, 4, 4,15, 4, 4, 4, 0],
+    [ 0, 4,15, 4,15, 4, 4, 0],
+    [ 0, 0, 4, 4, 4, 4, 0, 0],
+    [ 0, 0, 0, 2, 2, 0, 0, 0],
+    [ 0, 0, 0, 2, 2, 0, 0, 0],
+    [ 0, 0, 0, 0, 0, 0, 0, 0],
+];
+
 // --- Building Sprites (with outlines for GBC-style definition) ---
 
 // Solar Panel (1x1) — angled panel with clear frame and cell detail

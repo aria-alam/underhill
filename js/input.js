@@ -40,6 +40,11 @@ const Input = {
     },
 
     onKeyDown(e) {
+        // Resume AudioContext on user gesture (browsers require this)
+        if (typeof Music !== 'undefined' && Music.ctx && Music.ctx.state === 'suspended') {
+            Music.ctx.resume();
+        }
+
         const key = e.key.toLowerCase();
 
         // Name entry mode: capture all keys for text input
@@ -106,6 +111,13 @@ const Input = {
             }
         }
 
+        // Mute toggle
+        if (key === 'm') {
+            if (!Dialogue.active && typeof Music !== 'undefined') {
+                Music.toggleMute();
+            }
+        }
+
         // Dialogue navigation (W/S or arrows for choices and build menu)
         if (Dialogue.active && (Dialogue.choices || Dialogue.isBuildMenu)) {
             if (key === 'w' || key === 'arrowup') {
@@ -153,6 +165,11 @@ const Input = {
     },
 
     onClick(e) {
+        // Resume AudioContext on user gesture (browsers require this)
+        if (typeof Music !== 'undefined' && Music.ctx && Music.ctx.state === 'suspended') {
+            Music.ctx.resume();
+        }
+
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -169,6 +186,10 @@ const Input = {
 
     onTouchStart(e) {
         e.preventDefault();
+        // Resume AudioContext on user gesture (browsers require this)
+        if (typeof Music !== 'undefined' && Music.ctx && Music.ctx.state === 'suspended') {
+            Music.ctx.resume();
+        }
         this.isTouchDevice = true;
 
         for (const touch of e.changedTouches) {

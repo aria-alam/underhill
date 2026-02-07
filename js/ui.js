@@ -7,6 +7,7 @@ const UI = {
     pauseButton: { x: 0, y: 0, w: 0, h: 0 },
     saveButton: { x: 0, y: 0, w: 0, h: 0 },
     newGameButton: { x: 0, y: 0, w: 0, h: 0 },
+    muteButton: { x: 0, y: 0, w: 0, h: 0 },
     achievementPopup: null,
     achievementTimer: 0,
 
@@ -28,6 +29,7 @@ const UI = {
     showAchievement(milestone) {
         this.achievementPopup = milestone;
         this.achievementTimer = 4;
+        if (typeof Music !== 'undefined') Music.playSFX('achievement');
     },
 
     updateTimers(dt) {
@@ -49,6 +51,8 @@ const UI = {
         this.drawResourceBar(ctx, gameState, canvasW);
         this.drawPlayerStats(ctx, gameState, canvasW);
         this.drawSolCounter(ctx, gameState, canvasW);
+        this.drawTerraformBar(ctx, gameState, canvasW);
+        this.drawMoraleIndicators(ctx, gameState, canvasW);
         this.drawPauseButton(ctx, gameState, canvasW);
         this.drawNightWarning(ctx, gameState, canvasW, canvasH);
         this.drawInteractHint(ctx, gameState, canvasW, canvasH);
@@ -69,6 +73,8 @@ const UI = {
         if (gameState.gameOver) {
             this.drawGameOver(ctx, gameState, canvasW, canvasH);
         }
+
+        this.drawTerraformWin(ctx, gameState, canvasW, canvasH);
     },
 
     drawResourceBar(ctx, gameState, canvasW) {
@@ -120,6 +126,21 @@ const UI = {
                 const isLow = fill < 0.2 && res.key !== RESOURCE.MATERIALS && res.key !== RESOURCE.POPULATION;
                 ctx.fillStyle = isLow ? COLORS.DANGER : res.barColor;
                 ctx.fillRect(barX, barY, barW * fill, bH);
+            }
+
+            // Resource alert blink
+            const isVital = [RESOURCE.POWER, RESOURCE.WATER, RESOURCE.OXYGEN, RESOURCE.FOOD].includes(res.key);
+            if (isVital && max > 0) {
+                const alertPct = (val / max) * 100;
+                if (alertPct < RESOURCE_CRITICAL_PERCENT && Math.floor(Date.now() / 300) % 2 === 0) {
+                    // Critical blink — red flash over label
+                    ctx.fillStyle = 'rgba(192, 57, 43, 0.6)';
+                    ctx.fillRect(x - 2, 2, spacing - 6, 48);
+                } else if (alertPct < RESOURCE_ALERT_PERCENT && alertPct >= RESOURCE_CRITICAL_PERCENT) {
+                    // Warning — subtle amber tint
+                    ctx.fillStyle = 'rgba(212, 168, 67, 0.2)';
+                    ctx.fillRect(x - 2, 2, spacing - 6, 48);
+                }
             }
 
             // Net rate
@@ -223,11 +244,90 @@ const UI = {
         ctx.fillRect(barX, barY, barW * progress, barH);
     },
 
+    drawTerraformBar(ctx, gameState, canvasW) {
+        const pct = gameState.terraformPercent || 0;
+        if (pct <= 0 && gameState.buildings.length < 3) return;
+
+        const barW = 80;
+        const barH = 8;
+        const x = canvasW - 10 - barW;
+        const y = 107;
+
+        // Label
+        ctx.fillStyle = COLORS.GREEN;
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(`TERRAFORM ${Math.floor(pct)}%`, canvasW - 10, y - 2);
+
+        // Bar bg
+        ctx.fillStyle = '#4A3828';
+        ctx.fillRect(x, y, barW, barH);
+
+        // Bar fill
+        const fill = Math.min(1, pct / 100);
+        ctx.fillStyle = pct >= 85 ? '#27AE60' : pct >= 50 ? '#6B8E5A' : '#4A7A3A';
+        ctx.fillRect(x, y, barW * fill, barH);
+
+        ctx.textAlign = 'left';
+    },
+
+    drawMoraleIndicators(ctx, gameState, canvasW) {
+        if (gameState.colonyMode !== 'conflict') return;
+        if (!gameState.greenMorale && !gameState.redMorale) return;
+
+        const x = canvasW - 95;
+        const y = 120;
+        const barW = 40;
+        const barH = 4;
+
+        // Green morale
+        ctx.fillStyle = '#27AE60';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('GRN', x - 2, y + 4);
+        ctx.fillStyle = '#4A3828';
+        ctx.fillRect(x, y, barW, barH);
+        ctx.fillStyle = '#27AE60';
+        ctx.fillRect(x, y, barW * (gameState.greenMorale / 100), barH);
+
+        // Red morale
+        ctx.fillStyle = '#C0392B';
+        ctx.fillText('RED', x - 2, y + 13);
+        ctx.fillStyle = '#4A3828';
+        ctx.fillRect(x, y + 9, barW, barH);
+        ctx.fillStyle = '#C0392B';
+        ctx.fillRect(x, y + 9, barW * (gameState.redMorale / 100), barH);
+
+        ctx.textAlign = 'left';
+    },
+
+    drawTerraformWin(ctx, gameState, canvasW, canvasH) {
+        if (!gameState.terraformWon) return;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, canvasW, canvasH);
+
+        ctx.fillStyle = '#27AE60';
+        ctx.font = 'bold 28px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('TERRAFORMING COMPLETE', canvasW / 2, canvasH / 2 - 40);
+
+        ctx.fillStyle = COLORS.UI_LIGHT;
+        ctx.font = '14px monospace';
+        ctx.fillText('Mars is transforming. Underhill will endure.', canvasW / 2, canvasH / 2);
+        ctx.fillText(`Achieved in ${gameState.sol} sols`, canvasW / 2, canvasH / 2 + 25);
+
+        ctx.font = '12px monospace';
+        ctx.fillStyle = COLORS.POWER;
+        ctx.fillText('You may continue playing or start a new colony.', canvasW / 2, canvasH / 2 + 55);
+        ctx.textAlign = 'left';
+    },
+
     drawPauseButton(ctx, gameState, canvasW) {
         const btnW = 60;
         const btnH = 22;
         const x = canvasW - btnW - 10;
-        const y = 102;
+        const y = 140;
         this.pauseButton = { x, y, w: btnW, h: btnH };
 
         ctx.fillStyle = gameState.paused ? COLORS.DANGER : 'rgba(80, 60, 40, 0.6)';
@@ -260,6 +360,17 @@ const UI = {
         ctx.strokeRect(newX, y, btnW, btnH);
         ctx.fillStyle = COLORS.UI_LIGHT;
         ctx.fillText('NEW', newX + btnW / 2, y + 15);
+
+        // Mute button
+        const muteX = newX - btnW - 8;
+        this.muteButton = { x: muteX, y, w: btnW, h: btnH };
+        const isMuted = typeof Music !== 'undefined' && Music.muted;
+        ctx.fillStyle = isMuted ? COLORS.DANGER : 'rgba(80, 60, 40, 0.6)';
+        ctx.fillRect(muteX, y, btnW, btnH);
+        ctx.strokeStyle = COLORS.METAL;
+        ctx.strokeRect(muteX, y, btnW, btnH);
+        ctx.fillStyle = COLORS.UI_LIGHT;
+        ctx.fillText(isMuted ? 'UNMUTE' : 'MUTE', muteX + btnW / 2, y + 15);
 
         ctx.textAlign = 'left';
     },
@@ -469,6 +580,10 @@ const UI = {
         if (this.isInside(x, y, this.newGameButton)) {
             Game.isTestMode = false;
             Game.newGame();
+            return true;
+        }
+        if (this.isInside(x, y, this.muteButton)) {
+            if (typeof Music !== 'undefined') Music.toggleMute();
             return true;
         }
         return false;

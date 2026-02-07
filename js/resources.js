@@ -133,6 +133,27 @@ const Resources = {
             gameState.netRates[res] = production[res] - consumption[res];
         }
 
+        // Low resource alerts (once per transition below threshold)
+        for (const res of [RESOURCE.POWER, RESOURCE.WATER, RESOURCE.OXYGEN, RESOURCE.FOOD]) {
+            const max = gameState.maxStorage[res];
+            if (max <= 0) continue;
+            const pct = (gameState.resources[res] / max) * 100;
+            const alertKey = `_alert_${res}`;
+            if (pct < RESOURCE_CRITICAL_PERCENT && !gameState[alertKey]) {
+                gameState[alertKey] = true;
+                const label = {power:'POWER',water:'WATER',oxygen:'OXYGEN',food:'FOOD'}[res];
+                UI.addNotification(`CRITICAL: ${label} nearly depleted!`, 'danger');
+            } else if (pct >= RESOURCE_ALERT_PERCENT) {
+                gameState[alertKey] = false; // reset when recovered
+            }
+        }
+
+        // Terraforming tick
+        Terraforming.update(gameState);
+
+        // Morale tick
+        WorkSystem.updateMorale(gameState);
+
         // Check for colonist deaths
         this.checkColonistSurvival(gameState);
     },
@@ -190,5 +211,34 @@ const Resources = {
             return actual;
         }
         return 0;
+    },
+};
+
+// ============================================================
+// Terraforming System
+// ============================================================
+
+const Terraforming = {
+    update(gameState) {
+        let points = 0;
+        for (const building of gameState.buildings) {
+            if (building.offline || building.malfunctioning || !building.active) continue;
+            const rate = TERRAFORM_RATE[building.type];
+            if (rate) points += rate;
+        }
+
+        gameState.terraformPoints += points;
+        gameState.terraformPercent = Math.min(100,
+            (gameState.terraformPoints / TERRAFORM_GOAL) * 100);
+
+        // Win condition check (both modes)
+        if (gameState.terraformPercent >= TERRAFORM_WIN_PERCENT &&
+            !gameState.terraformWon) {
+            gameState.terraformWon = true;
+            Events.notifyThroughNPC(gameState,
+                ['TERRAFORMING COMPLETE! Mars is transforming!',
+                 'Underhill has achieved the impossible. Humanity has a second home.'],
+                'success');
+        }
     },
 };

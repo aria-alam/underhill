@@ -5,6 +5,8 @@
 const Grid = {
     tiles: [],      // 2D array [row][col] of terrain type
     occupied: [],   // 2D array [row][col] of building id or null
+    greeningCache: [],  // 2D array of vegetation tier (0-4) per tile
+    greeningDirty: true, // rebuild flag
 
     init() {
         this.tiles = [];
@@ -130,6 +132,71 @@ const Grid = {
         if (this.tiles[row][col] === TERRAIN.DARK_ROCK) return false;
         if (this.occupied[row][col] !== null) return false;
         return true;
+    },
+
+    // Rebuild the vegetation greening cache based on terraforming progress
+    rebuildGreeningCache(gameState) {
+        this.greeningCache = [];
+        for (let r = 0; r < GRID_ROWS; r++) {
+            this.greeningCache[r] = [];
+            for (let c = 0; c < GRID_COLS; c++) {
+                this.greeningCache[r][c] = 0;
+            }
+        }
+
+        const pct = gameState.terraformPercent || 0;
+        if (pct < GREEN_TIER_1) {
+            this.greeningDirty = false;
+            return;
+        }
+
+        // Find green-producing buildings
+        const greenBuildings = gameState.buildings.filter(b =>
+            TERRAFORM_RATE[b.type] && !b.offline && !b.malfunctioning
+        );
+
+        for (const b of greenBuildings) {
+            const def = BUILDING_DEFS[b.type];
+            const cx = b.col + Math.floor(def.width / 2);
+            const cy = b.row + Math.floor(def.height / 2);
+
+            for (let dr = -GREEN_RADIUS; dr <= GREEN_RADIUS; dr++) {
+                for (let dc = -GREEN_RADIUS; dc <= GREEN_RADIUS; dc++) {
+                    const r = cy + dr;
+                    const c = cx + dc;
+                    if (r < 0 || r >= GRID_ROWS || c < 0 || c >= GRID_COLS) continue;
+
+                    // Only green on sand/gravel
+                    const terrain = this.tiles[r][c];
+                    if (terrain !== TERRAIN.SAND && terrain !== TERRAIN.GRAVEL) continue;
+
+                    // Skip occupied tiles
+                    if (this.occupied[r][c] !== null) continue;
+
+                    const dist = Math.abs(dr) + Math.abs(dc);
+                    if (dist > GREEN_RADIUS) continue;
+
+                    // Tier based on terraforming % and distance
+                    let tier = 0;
+                    const proxFactor = 1 - (dist / GREEN_RADIUS);
+                    const effectivePct = pct * proxFactor;
+
+                    if (effectivePct >= GREEN_TIER_4) tier = 4;
+                    else if (effectivePct >= GREEN_TIER_3) tier = 3;
+                    else if (effectivePct >= GREEN_TIER_2) tier = 2;
+                    else if (effectivePct >= GREEN_TIER_1) tier = 1;
+
+                    // Use hash for natural variation
+                    const h = this.hash(r + 1000, c + 1000);
+                    if (h > 0.6) tier = Math.max(0, tier - 1);
+
+                    if (tier > this.greeningCache[r][c]) {
+                        this.greeningCache[r][c] = tier;
+                    }
+                }
+            }
+        }
+        this.greeningDirty = false;
     },
 
     // Spiral search for a walkable tile near (col, row) within radius

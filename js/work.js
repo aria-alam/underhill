@@ -77,6 +77,17 @@ const WorkSystem = {
             }
         }
 
+        // Morale productivity bonus (conflict mode)
+        if (gameState.colonyMode === 'conflict') {
+            const morale = npc.faction === FACTION.GREEN ? gameState.greenMorale :
+                           npc.faction === FACTION.RED ? gameState.redMorale : 50;
+            if (morale > MORALE_PRODUCTIVITY_THRESHOLD) {
+                bonus += 0.10; // +10% when happy
+            } else if (morale < MORALE_SABOTAGE_THRESHOLD) {
+                bonus -= 0.10; // -10% when unhappy
+            }
+        }
+
         return bonus;
     },
 
@@ -144,7 +155,13 @@ const WorkSystem = {
         if (npc.sabotageTimer < 1) return; // check once per second
         npc.sabotageTimer -= 1;
 
-        if (Math.random() > SABOTAGE_CHANCE_PER_TICK) return;
+        let sabotageChance = SABOTAGE_CHANCE_PER_TICK;
+        if (gameState.redMorale < MORALE_SABOTAGE_THRESHOLD) {
+            sabotageChance *= 2; // unhappy Reds sabotage more
+        } else if (gameState.redMorale > MORALE_PRODUCTIVITY_THRESHOLD) {
+            sabotageChance *= 0.3; // happy Reds rarely sabotage
+        }
+        if (Math.random() > sabotageChance) return;
 
         // Find a sabotage target
         const targets = gameState.buildings.filter(b =>
@@ -167,10 +184,49 @@ const WorkSystem = {
 
         const defName = BUILDING_DEFS[target.type].name;
         UI.addNotification(`SABOTAGE! ${npc.name} took the ${defName} offline!`, 'danger');
+        if (typeof Music !== 'undefined') Music.playSFX('sabotage');
         Events.notifyThroughNPC(gameState,
             [`SABOTAGE! ${npc.name} has taken the ${defName} offline!`, 'It will be back online in 15 seconds.'],
             'danger'
         );
+    },
+
+    // Update faction morale (called once per resource tick)
+    updateMorale(gameState) {
+        if (gameState.colonyMode !== 'conflict') return;
+
+        // Count aligned/opposed buildings
+        let greenAligned = 0, greenOpposed = 0;
+        let redAligned = 0, redOpposed = 0;
+
+        for (const b of gameState.buildings) {
+            if (b.offline || b.malfunctioning) continue;
+            if (GREEN_BUILDINGS.includes(b.type)) {
+                greenAligned++;
+                redOpposed++;
+            }
+            if (RED_BUILDINGS.includes(b.type)) {
+                redAligned++;
+                greenOpposed++;
+            }
+        }
+
+        // Adjust morale
+        const greenDelta = (greenAligned * MORALE_BUILDING_BOOST)
+                         - (greenOpposed * MORALE_BUILDING_PENALTY);
+        const redDelta = (redAligned * MORALE_BUILDING_BOOST)
+                       - (redOpposed * MORALE_BUILDING_PENALTY);
+
+        gameState.greenMorale += greenDelta * 0.1; // slow per tick
+        gameState.redMorale += redDelta * 0.1;
+
+        // Drift toward 50 (prevents runaway)
+        gameState.greenMorale += (50 - gameState.greenMorale) * 0.02;
+        gameState.redMorale += (50 - gameState.redMorale) * 0.02;
+
+        // Clamp
+        gameState.greenMorale = Math.max(0, Math.min(MORALE_MAX, gameState.greenMorale));
+        gameState.redMorale = Math.max(0, Math.min(MORALE_MAX, gameState.redMorale));
     },
 
     // Get faction-appropriate greeting

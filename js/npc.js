@@ -12,8 +12,8 @@ const NPC = {
         'Felix', 'Tariq', 'Axel', 'Chen', 'Hugo',
     ],
     NAMES_FEMALE: [
-        'Yuki', 'Anya', 'Suki', 'Lena', 'Mira',
-        'Kira', 'Isla', 'Nora', 'Luna', 'Vera',
+        'Yuki', 'Anya', 'Priya', 'Lena', 'Mirabel',
+        'Kira', 'Solange', 'Nora', 'Valentina', 'Amara',
     ],
 
     // Suit colors for recoloring (replace palette index 18 = orange)

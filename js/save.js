@@ -8,10 +8,14 @@ const Save = {
 
     save(gameState) {
         const data = {
-            version: 5,
+            version: 6,
             colonyMode: gameState.colonyMode || 'chill',
             peakPopulation: gameState.peakPopulation || 0,
             unlockedTiers: gameState.unlockedTiers || [1],
+            terraformPoints: gameState.terraformPoints || 0,
+            greenMorale: gameState.greenMorale || MORALE_START,
+            redMorale: gameState.redMorale || MORALE_START,
+            factionsExplained: gameState.factionsExplained || false,
             resources: gameState.resources,
             buildings: gameState.buildings.map(b => ({
                 id: b.id,
@@ -73,8 +77,8 @@ const Save = {
             const raw = localStorage.getItem(this.SAVE_KEY);
             if (!raw) return null;
             const data = JSON.parse(raw);
-            // Only accept v5 saves (progression system added, v4 incompatible)
-            if (data.version !== 5) {
+            // Accept v5 or v6 saves (backward compatible)
+            if (data.version !== 5 && data.version !== 6) {
                 console.warn('Incompatible save version', data.version, '— deleting old save.');
                 this.deleteSave();
                 return null;
@@ -105,6 +109,12 @@ const Save = {
         gameState.colonyMode = data.colonyMode || 'chill';
         gameState.peakPopulation = data.peakPopulation || 0;
         gameState.unlockedTiers = data.unlockedTiers || [1];
+        gameState.terraformPoints = data.terraformPoints || 0;
+        gameState.terraformPercent = Math.min(100, (gameState.terraformPoints / TERRAFORM_GOAL) * 100);
+        gameState.terraformWon = gameState.terraformPercent >= TERRAFORM_WIN_PERCENT;
+        gameState.greenMorale = data.greenMorale || MORALE_START;
+        gameState.redMorale = data.redMorale || MORALE_START;
+        gameState.factionsExplained = data.factionsExplained || false;
         Buildings.nextId = data.nextBuildingId || 1;
 
         // Restore buildings

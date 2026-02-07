@@ -522,3 +522,34 @@ const RED_BUILDINGS   = [BUILDING.MINING_DRILL, BUILDING.WATER_EXTRACTOR, BUILDI
 const SABOTAGE_CHANCE_PER_TICK = 0.003; // ~0.3% per second for idle Red NPCs
 const SABOTAGE_DURATION = 15;            // seconds offline
 const SABOTAGE_TARGETS = [BUILDING.GREENHOUSE, BUILDING.O2_GENERATOR];
+
+// Terraforming
+const TERRAFORM_GOAL = 50000;        // total points to reach 100%
+const TERRAFORM_RATE = {              // points per tick per building
+    [BUILDING.GREENHOUSE]: 1,
+    [BUILDING.O2_GENERATOR]: 1,
+    [BUILDING.HYDROPONICS_LAB]: 2,
+    [BUILDING.TERRAFORMING_TOWER]: 5,
+    [BUILDING.BIODOME]: 3,
+};
+const TERRAFORM_WIN_PERCENT = 100;    // win at this %
+
+// Greening thresholds (terraforming % at which vegetation tier appears)
+const GREEN_TIER_1 = 10;   // lichen
+const GREEN_TIER_2 = 30;   // shrubs
+const GREEN_TIER_3 = 60;   // grass patches
+const GREEN_TIER_4 = 85;   // small trees
+const GREEN_RADIUS = 6;    // tiles around green buildings
+
+// Faction morale
+const MORALE_MAX = 100;
+const MORALE_START = 50;
+const MORALE_DRIFT_RATE = 0.5;    // per tick, morale drifts toward 50
+const MORALE_BUILDING_BOOST = 2;  // per aligned building per tick
+const MORALE_BUILDING_PENALTY = 1;// per opposed building per tick
+const MORALE_SABOTAGE_THRESHOLD = 30; // Red morale below this -> higher sabotage
+const MORALE_PRODUCTIVITY_THRESHOLD = 70; // morale above this -> bonus productivity
+
+// Resource alert thresholds
+const RESOURCE_ALERT_PERCENT = 15;     // below 15% triggers warning
+const RESOURCE_CRITICAL_PERCENT = 5;   // below 5% triggers critical alert

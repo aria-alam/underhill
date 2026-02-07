@@ -52,6 +52,7 @@ const Dialogue = {
     },
 
     openBuildMenu(gameState, col, row) {
+        if (typeof Music !== 'undefined') Music.playSFX('menu_open');
         this.active = true;
         this.isBuildMenu = true;
         this.speaker = 'BUILD';
@@ -283,6 +284,7 @@ const Dialogue = {
             this.buildRow
         );
         if (placed) {
+            if (typeof Music !== 'undefined') Music.playSFX('build');
             // Nudge player if standing on new building
             const pt = Player.getTile();
             const def = BUILDING_DEFS[item.type];

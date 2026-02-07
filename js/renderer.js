@@ -64,6 +64,11 @@ const Renderer = {
         // Update camera before rendering
         this.updateCamera();
 
+        // Rebuild greening cache if dirty
+        if (Grid.greeningDirty) {
+            Grid.rebuildGreeningCache(gameState);
+        }
+
         // Clear
         ctx.fillStyle = COLORS.UI_DARK;
         ctx.fillRect(0, 0, this.width, this.height);
@@ -110,6 +115,17 @@ const Renderer = {
                 const x = c * TILE_SIZE + this.offsetX;
                 const y = r * TILE_SIZE + this.offsetY;
                 drawSprite(this.ctx, sprite, x, y, scale);
+
+                // Vegetation overlay
+                const vegTier = Grid.greeningCache[r] ? Grid.greeningCache[r][c] : 0;
+                if (vegTier > 0) {
+                    const vegSprite = [null, SPRITES.LICHEN, SPRITES.SHRUB, SPRITES.GRASS, SPRITES.SMALL_TREE][vegTier];
+                    if (vegSprite) {
+                        this.ctx.globalAlpha = 0.7;
+                        drawSprite(this.ctx, vegSprite, x, y, scale);
+                        this.ctx.globalAlpha = 1;
+                    }
+                }
             }
         }
     },
@@ -414,17 +430,70 @@ const Renderer = {
     },
 
     drawDayNight(gameState) {
+        const ctx = this.ctx;
         const solProgress = (gameState.solTime % SOL_DURATION) / SOL_DURATION;
+
         let nightAlpha = 0;
-        if (solProgress > 0.75) {
-            nightAlpha = (solProgress - 0.75) / 0.25 * 0.4;
-        } else if (solProgress < 0.1) {
-            nightAlpha = (1 - solProgress / 0.1) * 0.4;
+        let tintR = 10, tintG = 5, tintB = 30;
+
+        if (solProgress < 0.05) {
+            // Deep night
+            nightAlpha = 0.45;
+        } else if (solProgress < 0.15) {
+            // Dawn — fade from night to warm sunrise
+            const t = (solProgress - 0.05) / 0.10;
+            nightAlpha = 0.45 * (1 - t);
+            tintR = 10 + 50 * (1 - t);
+            tintG = 5 + 20 * (1 - t);
+            tintB = 30 * (1 - t);
+        } else if (solProgress < 0.70) {
+            // Day — no overlay
+            nightAlpha = 0;
+        } else if (solProgress < 0.80) {
+            // Dusk — warm orange fade into night
+            const t = (solProgress - 0.70) / 0.10;
+            nightAlpha = 0.35 * t;
+            tintR = 60 - 50 * t;
+            tintG = 25 - 20 * t;
+            tintB = 10 + 20 * t;
+        } else {
+            // Night — deepening darkness
+            const t = (solProgress - 0.80) / 0.20;
+            nightAlpha = 0.35 + 0.10 * t;
+            tintR = 10;
+            tintG = 5;
+            tintB = 30;
         }
 
+        // Apply night overlay
         if (nightAlpha > 0) {
-            this.ctx.fillStyle = `rgba(10, 5, 30, ${nightAlpha})`;
-            this.ctx.fillRect(0, 0, this.width, this.height);
+            ctx.fillStyle = `rgba(${Math.round(tintR)}, ${Math.round(tintG)}, ${Math.round(tintB)}, ${nightAlpha})`;
+            ctx.fillRect(0, 0, this.width, this.height);
         }
+
+        // Stars during night phases (solProgress > 0.80 or < 0.10)
+        if (solProgress > 0.80 || solProgress < 0.10) {
+            const starAlpha = solProgress > 0.80
+                ? Math.min(1, (solProgress - 0.80) / 0.10)
+                : Math.max(0, 1 - solProgress / 0.10);
+            this.drawStars(ctx, starAlpha * 0.6, gameState.time);
+        }
+    },
+
+    drawStars(ctx, alpha, time) {
+        if (alpha <= 0) return;
+
+        // Fixed star positions (seeded from constants for consistency)
+        for (let i = 0; i < 40; i++) {
+            const sx = ((i * 7919 + 12345) % this.width);
+            const sy = ((i * 104729 + 54321) % (this.height * 0.4)); // upper 40%
+            const twinkle = Math.sin(time * 2 + i * 1.7) * 0.3 + 0.7;
+            const size = (i % 3 === 0) ? 2 : 1;
+
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.globalAlpha = alpha * twinkle;
+            ctx.fillRect(sx, sy, size, size);
+        }
+        ctx.globalAlpha = 1;
     },
 };

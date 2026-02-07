@@ -47,6 +47,7 @@ const Buildings = {
 
         // Update derived state
         this.recalculate(gameState);
+        Grid.greeningDirty = true;
 
         // Nudge player if they're standing on the new building
         const pt = Player.getTile();
@@ -84,6 +85,7 @@ const Buildings = {
 
         // Recalculate
         this.recalculate(gameState);
+        Grid.greeningDirty = true;
         return true;
     },
 

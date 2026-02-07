@@ -31,6 +31,13 @@ const Game = {
             achievements: [],
             isNighttime: false,
             colonyMode: 'chill',
+            terraformPoints: 0,
+            terraformPercent: 0,
+            terraformWon: false,
+            greenMorale: MORALE_START,
+            redMorale: MORALE_START,
+            greeningTimer: 0,
+            factionsExplained: false,
         };
     },
 
@@ -47,6 +54,7 @@ const Game = {
         Renderer.init(canvas);
         UI.init();
         Events.init();
+        if (typeof Music !== 'undefined') Music.init();
         Resources.init(this.state);
         NPC.init();
 
@@ -98,6 +106,7 @@ const Game = {
         Events.init();
         UI.init();
         NPC.init();
+        if (typeof Music !== 'undefined') Music.init();
         // Kill any active dialogue without firing its onClose callback
         // (prevents intro's callback from opening character creation in the new game)
         Dialogue.onClose = null;
@@ -142,6 +151,10 @@ const Game = {
         // Unlock all tiers for testing
         this.state.peakPopulation = 30;
         this.state.unlockedTiers = [1, 2, 3];
+        this.state.sol = 12;
+        this.state.solTime = 100;
+        this.state.terraformPoints = 15000;  // ~30% for testing
+        this.state.terraformPercent = (15000 / TERRAFORM_GOAL) * 100;
 
         // Spawn player
         Player.init(cx, cy + 2);
@@ -150,26 +163,48 @@ const Game = {
         Player.portrait = PORTRAITS.PLAYER_FEMALE;
 
         // Give generous resources and raise storage caps
-        this.state.maxStorage[RESOURCE.POWER] = 200;
-        this.state.maxStorage[RESOURCE.WATER] = 200;
-        this.state.maxStorage[RESOURCE.OXYGEN] = 200;
-        this.state.maxStorage[RESOURCE.FOOD] = 200;
-        this.state.maxStorage[RESOURCE.MATERIALS] = 1000;
-        this.state.resources[RESOURCE.POWER] = 50;
-        this.state.resources[RESOURCE.WATER] = 50;
-        this.state.resources[RESOURCE.OXYGEN] = 50;
-        this.state.resources[RESOURCE.FOOD] = 50;
-        this.state.resources[RESOURCE.MATERIALS] = 500;
+        this.state.maxStorage[RESOURCE.POWER] = 500;
+        this.state.maxStorage[RESOURCE.WATER] = 500;
+        this.state.maxStorage[RESOURCE.OXYGEN] = 500;
+        this.state.maxStorage[RESOURCE.FOOD] = 500;
+        this.state.maxStorage[RESOURCE.MATERIALS] = 2000;
+        this.state.resources[RESOURCE.POWER] = 200;
+        this.state.resources[RESOURCE.WATER] = 200;
+        this.state.resources[RESOURCE.OXYGEN] = 200;
+        this.state.resources[RESOURCE.FOOD] = 200;
+        this.state.resources[RESOURCE.MATERIALS] = 1000;
 
-        // Pre-place some buildings around HQ
+        // Pre-place a full colony: power, life support, housing, production, tier 2+3
         const builds = [
-            { type: BUILDING.SOLAR_PANEL, col: cx - 3, row: cy - 1 },
-            { type: BUILDING.SOLAR_PANEL, col: cx - 3, row: cy },
-            { type: BUILDING.SOLAR_PANEL, col: cx - 3, row: cy + 1 },
-            { type: BUILDING.WATER_EXTRACTOR, col: cx + 2, row: cy - 1 },
-            { type: BUILDING.O2_GENERATOR, col: cx + 2, row: cy },
+            // Power cluster (west)
+            { type: BUILDING.SOLAR_PANEL, col: cx - 4, row: cy - 2 },
+            { type: BUILDING.SOLAR_PANEL, col: cx - 4, row: cy - 1 },
+            { type: BUILDING.SOLAR_PANEL, col: cx - 4, row: cy },
+            { type: BUILDING.SOLAR_PANEL, col: cx - 4, row: cy + 1 },
+            { type: BUILDING.SOLAR_FARM, col: cx - 4, row: cy + 2 },
+            { type: BUILDING.FUSION_REACTOR, col: cx - 4, row: cy + 4 },
+            // Life support (east)
+            { type: BUILDING.WATER_EXTRACTOR, col: cx + 2, row: cy - 2 },
+            { type: BUILDING.WATER_EXTRACTOR, col: cx + 3, row: cy - 2 },
+            { type: BUILDING.O2_GENERATOR, col: cx + 2, row: cy - 1 },
+            { type: BUILDING.O2_GENERATOR, col: cx + 3, row: cy - 1 },
+            { type: BUILDING.GREENHOUSE, col: cx + 2, row: cy },
             { type: BUILDING.GREENHOUSE, col: cx + 2, row: cy + 1 },
-            { type: BUILDING.MINING_DRILL, col: cx - 3, row: cy + 2 },
+            { type: BUILDING.HYDROPONICS_LAB, col: cx + 2, row: cy + 2 },
+            // Housing (south)
+            { type: BUILDING.HABITAT, col: cx - 1, row: cy + 3 },
+            { type: BUILDING.HABITAT, col: cx + 1, row: cy + 3 },
+            { type: BUILDING.BIODOME, col: cx - 1, row: cy + 5 },
+            // Infrastructure (north)
+            { type: BUILDING.LANDING_PAD, col: cx - 1, row: cy - 4 },
+            { type: BUILDING.STORAGE_DEPOT, col: cx + 1, row: cy - 3 },
+            { type: BUILDING.STORAGE_DEPOT, col: cx + 1, row: cy - 4 },
+            { type: BUILDING.MEDICAL_BAY, col: cx + 2, row: cy - 3 },
+            { type: BUILDING.RESEARCH_LAB, col: cx - 3, row: cy - 3 },
+            // Mining (far west)
+            { type: BUILDING.MINING_DRILL, col: cx - 5, row: cy - 1 },
+            { type: BUILDING.MINING_DRILL, col: cx - 5, row: cy },
+            { type: BUILDING.ADVANCED_DRILL, col: cx - 5, row: cy + 1 },
         ];
         for (const b of builds) {
             const def = BUILDING_DEFS[b.type];
@@ -181,10 +216,26 @@ const Game = {
         }
         Buildings.recalculate(this.state);
 
-        // Spawn crew
+        // Spawn Dr. Kimura
         this._spawnStartingCrew();
 
-        UI.addNotification('TEST MODE — 500 materials, buildings pre-placed', 'warning');
+        // Spawn 10 additional colonists with mixed factions
+        const factionOrder = [
+            FACTION.GREEN, FACTION.RED, FACTION.NEUTRAL,
+            FACTION.GREEN, FACTION.RED, FACTION.NEUTRAL,
+            FACTION.RED, FACTION.GREEN, FACTION.NEUTRAL, FACTION.RED,
+        ];
+        for (let i = 0; i < 10; i++) {
+            const npc = NPC.spawn(this.state);
+            if (npc) {
+                const faction = factionOrder[i];
+                npc.faction = faction;
+                npc.suitColor = FACTION_COLORS[faction];
+                npc.idleLines = WorkSystem.getIdleLines(faction);
+            }
+        }
+
+        UI.addNotification('TEST MODE — Full colony, conflict mode, 11 colonists', 'warning');
     },
 
     _placeHQ(col, row) {
@@ -280,7 +331,7 @@ const Game = {
                 'Year 2157. Earth\'s resources are dwindling. Humanity\'s last hope lies among the stars.',
                 'You have been chosen to lead the first permanent settlement on Mars. Your Command Center has been deployed at the landing site.',
                 'Your mission: build a self-sustaining colony. Construct solar panels for power, water extractors, O2 generators, and greenhouses to support life.',
-                'Be warned: Mars is unforgiving. Nights are freezing — stay near shelters. Dust storms will batter your equipment. Keep your supplies stocked.',
+                'Be warned: Mars is unforgiving. Nights are freezing — stay near shelters. You can sleep until dawn at the Command Center. Dust storms will batter your equipment. Keep your supplies stocked.',
                 'Monitor your HP, Energy, and Hunger. Visit the Command Center to eat, rest, and heal. If your HP reaches zero, you\'ll pass out.',
                 'Your first task: report to Dr. Kimura, your chief engineer. He landed with the advance team and is waiting near the Command Center.',
                 'Move with WASD/arrows. Press E to interact, build, and talk.',
@@ -399,6 +450,7 @@ const Game = {
             // Always update UI timers and dialogue
             UI.updateTimers(dt);
             Dialogue.update(dt);
+            if (typeof Music !== 'undefined') Music.update(this.state);
 
             // Render
             Renderer.render(this.state);
@@ -419,7 +471,7 @@ const Game = {
 
         // Update nighttime flag
         const solProgress = (this.state.solTime % SOL_DURATION) / SOL_DURATION;
-        this.state.isNighttime = solProgress > 0.75 || solProgress < 0.1;
+        this.state.isNighttime = solProgress > 0.80 || solProgress < 0.05;
 
         // Check sol advancement
         if (this.state.solTime >= SOL_DURATION) {
@@ -445,6 +497,13 @@ const Game = {
 
         // Auto-save
         Save.updateAutoSave(this.state, dt);
+
+        // Periodic greening cache rebuild (every ~10 seconds)
+        this.state.greeningTimer = (this.state.greeningTimer || 0) + dt;
+        if (this.state.greeningTimer >= 10) {
+            this.state.greeningTimer = 0;
+            Grid.greeningDirty = true;
+        }
 
         // Track peakPopulation and unlock tiers
         this.updatePeakPopulation();
@@ -475,7 +534,8 @@ const Game = {
                 this.state.unlockedTiers.push(num);
                 const buildingNames = tier.buildings.map(t => BUILDING_DEFS[t].name).join(', ');
                 UI.addNotification(`Colony milestone! Tier ${num} unlocked \u2014 check the build menu.`, 'success');
-                // Queue Dr. Kimura dialogue about new buildings
+                if (typeof Music !== 'undefined') Music.playSFX('tier_unlock');
+                // Queue Dr. Kimura dialogue about new tier buildings
                 const kimura = NPC.list.find(n => n.name === 'Dr. Kimura');
                 if (kimura) {
                     kimura.dialogueQueue.push({
@@ -487,6 +547,30 @@ const Game = {
                         ],
                     });
                 }
+            }
+        }
+
+        // Faction tutorial: Dr. Kimura explains Greens vs Reds when factions emerge
+        if (this.state.colonyMode === 'conflict' &&
+            this.state.resources[RESOURCE.POPULATION] >= FACTION_EMERGE_POP &&
+            !this.state.factionsExplained) {
+            this.state.factionsExplained = true;
+
+            const kimura = NPC.list.find(n => n.name === 'Dr. Kimura');
+            if (kimura) {
+                kimura.dialogueQueue.push({
+                    showBubble: true,
+                    lines: [
+                        'Commander, we need to talk. The colony has grown, and... opinions are forming.',
+                        'Some colonists \u2014 the Greens \u2014 believe we should terraform Mars. Build greenhouses, O2 generators, biodomes. Make Mars livable.',
+                        'Others \u2014 the Reds \u2014 think Mars should stay as it is. They prefer mining, drilling, pure infrastructure. They see beauty in the red dust.',
+                        'You\'ll see colonists in green and red suits now. Their faction affects how they work.',
+                        'Greens work better at terraforming buildings \u2014 greenhouses, O2 generators, hydroponics labs. Reds prefer mining drills, solar panels, extractors.',
+                        'Watch the MORALE bars in your HUD. Build too many of one type and the other faction gets unhappy.',
+                        'Unhappy Reds might sabotage your greenhouses and O2 generators. Keep them busy \u2014 assign them to buildings they like.',
+                        'The key is balance, Commander. Or pick a side. Your call.',
+                    ],
+                });
             }
         }
     },
