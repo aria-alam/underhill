@@ -533,6 +533,11 @@ const Autoplay = {
             const cx = hq.col + 1;
             const cy = hq.row + 1;
 
+            // Player tile — avoid building right next to them (prevents boxing in)
+            const pt = Player.getTile();
+            const playerCol = pt.col;
+            const playerRow = pt.row;
+
             // Spiral search
             for (let dist = 2; dist < 25; dist++) {
                 for (let dr = -dist; dr <= dist; dr++) {
@@ -540,8 +545,16 @@ const Autoplay = {
                         if (Math.abs(dr) !== dist && Math.abs(dc) !== dist) continue;
                         const col = cx + dc;
                         const row = cy + dr;
+
+                        // Skip tiles within 2 of the player to avoid trapping them
+                        if (Math.abs(col - playerCol) <= 1 && Math.abs(row - playerRow) <= 1) continue;
+
                         if (Grid.canPlace(col, row, def.width, def.height)) {
                             const ok = Buildings.place(s, type, col, row);
+                            if (ok) {
+                                // Safety: if player is now boxed in, teleport them out
+                                this._escapeIfTrapped();
+                            }
                             if (!ok && this._verbose) {
                                 console.log(`[Autoplay] Buildings.place returned false for ${type} at (${col}, ${row})`);
                             }
@@ -555,6 +568,27 @@ const Autoplay = {
         } catch (e) {
             this._bug('PLACE_ERROR', `Exception in _autoPlace(${type}): ${e.message}`, e);
             return false;
+        }
+    },
+
+    _escapeIfTrapped() {
+        const pt = Player.getTile();
+        // Check if any of the 4 cardinal neighbors are walkable
+        const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+        for (const [dc, dr] of dirs) {
+            const c = pt.col + dc;
+            const r = pt.row + dr;
+            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS && Grid.isWalkable(c, r)) {
+                return; // not trapped
+            }
+        }
+        // Trapped! Find nearest walkable tile and teleport
+        const safe = Grid.findWalkableNear(pt.col, pt.row, 10);
+        if (safe) {
+            Player.x = safe.col * TILE_SIZE;
+            Player.y = safe.row * TILE_SIZE;
+            Player.moveTarget = null;
+            if (this._verbose) console.log(`%c[Autoplay] Player was trapped — teleported to (${safe.col}, ${safe.row})`, 'color:#D4A843');
         }
     },
 
