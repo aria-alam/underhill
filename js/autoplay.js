@@ -668,19 +668,31 @@ const Autoplay = {
             // Update peak population each tick so tiers unlock during turbo
             Game.updatePeakPopulation();
 
-            // Actively spawn colonists every ~30 game-seconds if conditions allow
-            if (i % 30 === 0 && Buildings.hasLandingPad(s) &&
+            // Actively spawn colonists every ~60 game-seconds if colony is stable
+            if (i % 60 === 0 && Buildings.hasLandingPad(s) &&
                 s.resources[RESOURCE.POPULATION] < s.popCapacity &&
-                s.resources[RESOURCE.FOOD] > 5 && s.resources[RESOURCE.WATER] > 5 &&
-                s.resources[RESOURCE.OXYGEN] > 5) {
-                const added = Resources.addColonists(s, 2);
-                for (let j = 0; j < added; j++) {
-                    const npc = NPC.spawn(s);
-                    if (npc) {
-                        const faction = WorkSystem.assignFaction(s);
-                        npc.faction = faction;
-                        npc.suitColor = FACTION_COLORS[faction];
-                        npc.idleLines = WorkSystem.getIdleLines(faction);
+                !s.isNighttime) {
+                // Only spawn if net production can sustain more colonists
+                const pop = s.resources[RESOURCE.POPULATION];
+                const newConsume = POP_CONSUMPTION[RESOURCE.FOOD]; // 0.3 per colonist
+                const netFood = (s.netRates[RESOURCE.FOOD] || 0) - newConsume;
+                const netWater = (s.netRates[RESOURCE.WATER] || 0) - newConsume;
+                const netO2 = (s.netRates[RESOURCE.OXYGEN] || 0) - newConsume;
+                const foodPct = s.resources[RESOURCE.FOOD] / (s.maxStorage[RESOURCE.FOOD] || 1);
+                const waterPct = s.resources[RESOURCE.WATER] / (s.maxStorage[RESOURCE.WATER] || 1);
+                const o2Pct = s.resources[RESOURCE.OXYGEN] / (s.maxStorage[RESOURCE.OXYGEN] || 1);
+
+                if (netFood > 0 && netWater > 0 && netO2 > 0 &&
+                    foodPct > 0.3 && waterPct > 0.3 && o2Pct > 0.3) {
+                    const added = Resources.addColonists(s, 1);
+                    for (let j = 0; j < added; j++) {
+                        const npc = NPC.spawn(s);
+                        if (npc) {
+                            const faction = WorkSystem.assignFaction(s);
+                            npc.faction = faction;
+                            npc.suitColor = FACTION_COLORS[faction];
+                            npc.idleLines = WorkSystem.getIdleLines(faction);
+                        }
                     }
                 }
             }
