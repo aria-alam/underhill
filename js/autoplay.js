@@ -88,6 +88,15 @@ const Autoplay = {
         this.interval = setInterval(() => {
             if (!this.active) return;
             if (Game.state.gameOver) {
+                console.log('%c[Autoplay] GAME OVER at main tick', 'color:#C0392B;font-weight:bold');
+                console.log('  Reason:', Game.state.gameOverReason);
+                console.log('  hadPopulation:', Game.state.hadPopulation);
+                console.log('  population:', Game.state.resources[RESOURCE.POPULATION]);
+                console.log('  food:', Math.floor(Game.state.resources[RESOURCE.FOOD]),
+                    'water:', Math.floor(Game.state.resources[RESOURCE.WATER]),
+                    'O2:', Math.floor(Game.state.resources[RESOURCE.OXYGEN]));
+                console.log('  buildings:', Game.state.buildings.length, 'NPCs:', NPC.list.length);
+                console.log('  tick:', this.tickCount, 'sol:', Game.state.sol);
                 this._bug('GAME_OVER', `Game ended: ${Game.state.gameOverReason}`);
                 this.stop();
                 return;
@@ -690,8 +699,18 @@ const Autoplay = {
                 }
             }
 
-            // Stop early if game over
-            if (s.gameOver) break;
+            // Catch game over — log full state for debugging
+            if (s.gameOver) {
+                console.log('%c[Autoplay] GAME OVER caught in turbo!', 'color:#C0392B;font-weight:bold');
+                console.log('  Reason:', s.gameOverReason);
+                console.log('  hadPopulation:', s.hadPopulation);
+                console.log('  population:', s.resources[RESOURCE.POPULATION]);
+                console.log('  food:', s.resources[RESOURCE.FOOD], 'water:', s.resources[RESOURCE.WATER], 'O2:', s.resources[RESOURCE.OXYGEN]);
+                console.log('  sol:', s.sol, 'solTime:', s.solTime, 'isNight:', s.isNighttime);
+                console.log('  buildings:', s.buildings.length, 'NPCs:', NPC.list.length);
+                console.log('  turbo iteration:', i, 'of', ticks);
+                break;
+            }
         }
 
         // Restore event timer so normal events resume between turbo ticks
