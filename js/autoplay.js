@@ -644,17 +644,18 @@ const Autoplay = {
         const ticks = Math.floor(seconds / RESOURCE_TICK);
         for (let i = 0; i < ticks; i++) {
             Resources.tick(s);
+            Events.update(s, RESOURCE_TICK);
             s.solTime += RESOURCE_TICK;
             s.time += RESOURCE_TICK;
             if (s.solTime >= SOL_DURATION) {
                 s.solTime -= SOL_DURATION;
                 s.sol++;
             }
+            const sp = (s.solTime % SOL_DURATION) / SOL_DURATION;
+            s.isNighttime = sp > 0.80 || sp < 0.05;
             // Stop early if game over
             if (s.gameOver) break;
         }
-        const solProgress = (s.solTime % SOL_DURATION) / SOL_DURATION;
-        s.isNighttime = solProgress > 0.80 || solProgress < 0.05;
         Grid.greeningDirty = true;
         Game.updatePeakPopulation();
     },
