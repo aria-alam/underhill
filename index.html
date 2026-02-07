@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Underhill: A Mars Colony Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- About overlay with clickable links -->
+        <div id="about-overlay" style="display:none;">
+            <div id="about-panel">
+                <h2>Underhill</h2>
+                <p>A Mars colony game about surviving and building on the Red Planet.</p>
+                <p class="about-credit">Created by <strong>Aria Alamalhodaei</strong></p>
+                <div class="about-links">
+                    <a href="https://www.x.com/breadfrom" target="_blank" rel="noopener">Follow on X</a>
+                    <a href="https://ko-fi.com/ariaalamalhodaei" target="_blank" rel="noopener">Support this project</a>
+                    <a href="https://www.x.com/breadfrom" target="_blank" rel="noopener">Send feedback</a>
+                </div>
+                <button id="about-close">Back to Colony</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts loaded in dependency order -->
+    <script src="js/constants.js"></script>
+    <script src="js/work.js"></script>
+    <script src="js/sprites.js"></script>
+    <script src="js/grid.js"></script>
+    <script src="js/buildings.js"></script>
+    <script src="js/resources.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/npc.js"></script>
+    <script src="js/dialogue.js"></script>
+    <script src="js/interaction.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

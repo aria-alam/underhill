@@ -1,0 +1,117 @@
+/* ============================================================
+   Underhill — Styles
+   ============================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1A0E08;
+    font-family: monospace;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+#game-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: default;
+}
+
+/* About overlay */
+#about-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(26, 14, 8, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+#about-panel {
+    background: #2C1810;
+    border: 2px solid #F5E6D3;
+    outline: 1px solid #7B8794;
+    outline-offset: 3px;
+    padding: 32px 40px;
+    max-width: 380px;
+    text-align: center;
+    color: #F5E6D3;
+}
+
+#about-panel h2 {
+    font-size: 16px;
+    color: #D4A843;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
+
+#about-panel p {
+    font-size: 12px;
+    line-height: 1.6;
+    margin-bottom: 8px;
+    color: #B8A898;
+}
+
+#about-panel .about-credit {
+    color: #F5E6D3;
+    margin-bottom: 16px;
+}
+
+.about-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.about-links a {
+    display: block;
+    padding: 8px 16px;
+    background: rgba(80, 60, 40, 0.5);
+    border: 1px solid #7B8794;
+    color: #D4A843;
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.about-links a:hover {
+    background: rgba(212, 168, 67, 0.2);
+    color: #F5E6D3;
+}
+
+#about-close {
+    background: rgba(80, 60, 40, 0.6);
+    border: 1px solid #7B8794;
+    color: #F5E6D3;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 8px 24px;
+    cursor: pointer;
+}
+
+#about-close:hover {
+    background: rgba(107, 142, 90, 0.4);
+}
