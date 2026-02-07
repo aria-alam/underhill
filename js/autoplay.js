@@ -71,6 +71,7 @@ const Autoplay = {
 
         // Force through fresh game setup if needed
         this._skipSetup(options.mode || 'conflict');
+        this._verbose = options.verbose !== false; // default: verbose on
 
         // Hook into global errors
         this.originalOnError = window.onerror;
@@ -96,12 +97,21 @@ const Autoplay = {
             // Handle dialogues — advance through them naturally
             if (Dialogue.active) {
                 this._handleDialogue();
+            } else {
+                this._dialogueTicks = 0;
             }
 
             this.tickCount++;
             this._watchdog();
             this._makeDecision();
             this._movePlayer();
+
+            // Periodic status log (every 20 ticks / ~10s)
+            if (this._verbose && this.tickCount % 20 === 0) {
+                const solPct = ((Game.state.solTime % SOL_DURATION) / SOL_DURATION * 100).toFixed(0);
+                console.log(`%c[Autoplay] Tick ${this.tickCount}%c — Sol ${Game.state.sol} (${solPct}%), ${Game.state.buildings.length} buildings, mat: ${Math.floor(Game.state.resources[RESOURCE.MATERIALS])}, pwr: ${Game.state.resources[RESOURCE.POWER].toFixed(1)}, pop: ${Game.state.resources[RESOURCE.POPULATION]}`,
+                    'color:#5B8FA8', 'color:#7B8794');
+            }
 
             // Check sol limit
             const solsPlayed = Game.state.sol - this.stats.startSol;
@@ -155,20 +165,33 @@ const Autoplay = {
     // ==================== Setup & Dialogue Handling ====================
 
     _skipSetup(mode) {
-        // Kill any intro/character creation dialogue chain
+        // ---- 1. Kill ALL dialogue state aggressively ----
+        // Null out every callback before calling close() so chains don't fire
         Dialogue.onClose = null;
-        Dialogue.close();
+        Dialogue.nameCallback = null;
+        Dialogue.choices = null;
+        Dialogue.isNameEntry = false;
+        Dialogue.isBuildMenu = false;
+        Dialogue.active = false; // force inactive without firing close() callbacks
+
+        // ---- 2. Unpause ----
         Game.state.paused = false;
 
-        // Set player identity if not set
+        // ---- 3. Set player identity if not set ----
         if (!Player.name || Player.name === 'Commander') {
             Player.name = 'Autoplay Bot';
             Player.gender = 'female';
             Player.portrait = PORTRAITS.PLAYER_FEMALE;
         }
 
-        // Set colony mode
+        // ---- 4. Set colony mode ----
         Game.state.colonyMode = mode;
+
+        // ---- 5. Clear ALL NPC dialogue queues (not just Kimura) ----
+        for (const npc of NPC.list) {
+            npc.dialogueQueue = [];
+            if (npc.state === 'talking') npc.state = 'idle';
+        }
 
         // Update Dr. Kimura's faction for the mode
         const kimura = NPC.list.find(n => n.name === 'Dr. Kimura');
@@ -180,14 +203,34 @@ const Autoplay = {
                 kimura.faction = FACTION.NEUTRAL;
                 kimura.suitColor = FACTION_COLORS[FACTION.NEUTRAL];
             }
-            // Clear any queued intro dialogue so it doesn't block
-            kimura.dialogueQueue = [];
         }
 
-        console.log(`%c[Autoplay] Setup complete — mode: ${mode}, player: ${Player.name}`, 'color:#6B8E5A');
+        // ---- 6. Skip initial night so solar panels work immediately ----
+        if (Game.state.sol <= 1 && Game.state.solTime < SOL_DURATION * 0.15) {
+            Game.state.solTime = SOL_DURATION * 0.15; // jump to morning
+            Game.state.isNighttime = false;
+            console.log('%c[Autoplay] Skipped initial night → starting at dawn', 'color:#D4A843');
+        }
+
+        console.log(`%c[Autoplay] Setup complete — mode: ${mode}, player: ${Player.name}, buildings: ${Game.state.buildings.length}, mat: ${Game.state.resources[RESOURCE.MATERIALS]}`, 'color:#6B8E5A');
     },
 
     _handleDialogue() {
+        // Track how long a dialogue has been open — force-kill if stuck
+        this._dialogueTicks = (this._dialogueTicks || 0) + 1;
+        if (this._dialogueTicks > 10) {
+            // Dialogue stuck for 5+ seconds — force kill it
+            if (this._verbose) console.log('%c[Autoplay] Force-closing stuck dialogue', 'color:#C0392B');
+            Dialogue.onClose = null;
+            Dialogue.nameCallback = null;
+            Dialogue.active = false;
+            Dialogue.isNameEntry = false;
+            Dialogue.isBuildMenu = false;
+            Dialogue.choices = null;
+            this._dialogueTicks = 0;
+            return;
+        }
+
         // Name entry — type a name and submit
         if (Dialogue.isNameEntry) {
             Dialogue.nameText = 'Autoplay Bot';
@@ -286,15 +329,18 @@ const Autoplay = {
         }
 
         // Stuck detection — if no resource change in 30 ticks
+        // Check ALL resources including materials and building count
         const resSnapshot = JSON.stringify([
             Math.floor(s.resources[RESOURCE.POWER]),
             Math.floor(s.resources[RESOURCE.WATER]),
             Math.floor(s.resources[RESOURCE.FOOD]),
+            Math.floor(s.resources[RESOURCE.MATERIALS]),
+            s.buildings.length,
         ]);
         if (resSnapshot === this.lastResources) {
             this.stuckCounter++;
             if (this.stuckCounter >= 30) {
-                this._warn('STUCK', `No resource change for ${this.stuckCounter} ticks`);
+                this._warn('STUCK', `No resource change for ${this.stuckCounter} ticks (Sol ${s.sol}, paused: ${s.paused}, dialogue: ${Dialogue.active}, buildings: ${s.buildings.length})`);
                 this.stuckCounter = 0;
             }
         } else {
@@ -319,122 +365,178 @@ const Autoplay = {
         const s = Game.state;
         this.stats.decisionsMade++;
 
-        // Priority-based building AI
-        const mat = s.resources[RESOURCE.MATERIALS];
-        const pwr = s.resources[RESOURCE.POWER];
-        const water = s.resources[RESOURCE.WATER];
-        const o2 = s.resources[RESOURCE.OXYGEN];
-        const food = s.resources[RESOURCE.FOOD];
-        const pop = s.resources[RESOURCE.POPULATION];
-        const net = s.netRates || {};
+        try {
+            // Priority-based building AI
+            const mat = s.resources[RESOURCE.MATERIALS];
+            const pwr = s.resources[RESOURCE.POWER];
+            const water = s.resources[RESOURCE.WATER];
+            const o2 = s.resources[RESOURCE.OXYGEN];
+            const food = s.resources[RESOURCE.FOOD];
+            const pop = s.resources[RESOURCE.POPULATION];
+            const net = s.netRates || {};
 
-        // Don't build if low on materials
-        if (mat < 15) return;
-
-        let toBuild = null;
-
-        // Critical: no power production
-        if ((net[RESOURCE.POWER] || 0) <= 0 && mat >= 10) {
-            toBuild = BUILDING.SOLAR_PANEL;
-        }
-        // Critical: no water
-        else if ((net[RESOURCE.WATER] || 0) <= 0 && pwr > 5 && mat >= 20) {
-            toBuild = BUILDING.WATER_EXTRACTOR;
-        }
-        // Critical: no oxygen
-        else if ((net[RESOURCE.OXYGEN] || 0) <= 0 && pwr > 5 && mat >= 20) {
-            toBuild = BUILDING.O2_GENERATOR;
-        }
-        // Critical: no food
-        else if ((net[RESOURCE.FOOD] || 0) <= 0 && pwr > 3 && water > 3 && mat >= 25) {
-            toBuild = BUILDING.GREENHOUSE;
-        }
-        // Need housing for growth
-        else if (pop >= s.popCapacity && s.popCapacity < 20 && mat >= 30) {
-            toBuild = BUILDING.HABITAT;
-        }
-        // Need a landing pad
-        else if (!Buildings.hasLandingPad(s) && mat >= 40) {
-            toBuild = BUILDING.LANDING_PAD;
-        }
-        // More power for growth
-        else if ((net[RESOURCE.POWER] || 0) < 5 && mat >= 10) {
-            toBuild = BUILDING.SOLAR_PANEL;
-        }
-        // Storage when things are full
-        else if (mat > 150 && s.maxStorage[RESOURCE.POWER] < 200) {
-            toBuild = BUILDING.STORAGE_DEPOT;
-        }
-        // Mining when materials are getting low
-        else if (mat < 80 && pwr > 10 && mat >= 15) {
-            toBuild = BUILDING.MINING_DRILL;
-        }
-        // Tier 2+ buildings when available and affordable
-        else if (s.unlockedTiers && s.unlockedTiers.includes(2) && mat >= 40) {
-            const options = [];
-            if ((net[RESOURCE.FOOD] || 0) < 3) options.push(BUILDING.HYDROPONICS_LAB);
-            if ((net[RESOURCE.POWER] || 0) < 10) options.push(BUILDING.SOLAR_FARM);
-            if (!Buildings.hasMedicalBay(s)) options.push(BUILDING.MEDICAL_BAY);
-            if (options.length > 0) toBuild = options[Math.floor(Math.random() * options.length)];
-        }
-        // Tier 3 — terraform-focused
-        else if (s.unlockedTiers && s.unlockedTiers.includes(3) && mat >= 70) {
-            const t3 = [];
-            if (pwr > 20) t3.push(BUILDING.TERRAFORMING_TOWER);
-            if (pwr > 15 && water > 10) t3.push(BUILDING.BIODOME);
-            if ((net[RESOURCE.POWER] || 0) < 15) t3.push(BUILDING.FUSION_REACTOR);
-            if (mat < 100) t3.push(BUILDING.ADVANCED_DRILL);
-            if (t3.length > 0) toBuild = t3[Math.floor(Math.random() * t3.length)];
-        }
-
-        if (toBuild) {
-            const placed = this._autoPlace(toBuild);
-            if (placed) this.stats.buildingsPlaced++;
-        }
-
-        // Assign idle NPCs to unoccupied buildings
-        for (const npc of NPC.list) {
-            if (npc.assignedBuildingId !== null) continue;
-            const available = WorkSystem.getStaffableBuildings(npc, s);
-            if (available.length > 0) {
-                // Prefer faction-matched buildings
-                const matched = available.filter(b => {
-                    if (npc.faction === FACTION.GREEN && GREEN_BUILDINGS.includes(b.type)) return true;
-                    if (npc.faction === FACTION.RED && RED_BUILDINGS.includes(b.type)) return true;
-                    return false;
-                });
-                const pick = matched.length > 0 ? matched[0] : available[0];
-                WorkSystem.assign(npc, pick);
+            // Don't build if low on materials
+            if (mat < 15) {
+                if (this._verbose && this.tickCount % 20 === 0) {
+                    console.log(`%c[Autoplay] Waiting — materials low (${Math.floor(mat)})`, 'color:#8B6E5C');
+                }
+                return;
             }
+
+            // Don't spam builds — limit to 1 building every 3 ticks (1.5s)
+            if (this.tickCount - (this._lastBuildTick || 0) < 3) return;
+
+            let toBuild = null;
+            let reason = '';
+
+            // Count existing building types (avoid spamming the same thing)
+            const buildingCounts = {};
+            for (const b of s.buildings) {
+                buildingCounts[b.type] = (buildingCounts[b.type] || 0) + 1;
+            }
+
+            // Critical: no power production (but cap solar panels at 6 until other needs met)
+            if ((net[RESOURCE.POWER] || 0) <= 0 && mat >= 10 && (buildingCounts[BUILDING.SOLAR_PANEL] || 0) < 6) {
+                toBuild = BUILDING.SOLAR_PANEL;
+                reason = `net power: ${(net[RESOURCE.POWER] || 0).toFixed(1)}`;
+            }
+            // Critical: no water
+            else if ((net[RESOURCE.WATER] || 0) <= 0 && pwr > 5 && mat >= 20) {
+                toBuild = BUILDING.WATER_EXTRACTOR;
+                reason = 'no water production';
+            }
+            // Critical: no oxygen
+            else if ((net[RESOURCE.OXYGEN] || 0) <= 0 && pwr > 5 && mat >= 20) {
+                toBuild = BUILDING.O2_GENERATOR;
+                reason = 'no O2 production';
+            }
+            // Critical: no food
+            else if ((net[RESOURCE.FOOD] || 0) <= 0 && pwr > 3 && water > 3 && mat >= 25) {
+                toBuild = BUILDING.GREENHOUSE;
+                reason = 'no food production';
+            }
+            // Need housing for growth
+            else if (pop >= s.popCapacity && s.popCapacity < 20 && mat >= 30) {
+                toBuild = BUILDING.HABITAT;
+                reason = `pop ${pop} >= cap ${s.popCapacity}`;
+            }
+            // Need a landing pad
+            else if (!Buildings.hasLandingPad(s) && mat >= 40) {
+                toBuild = BUILDING.LANDING_PAD;
+                reason = 'no landing pad';
+            }
+            // More power for growth
+            else if ((net[RESOURCE.POWER] || 0) < 5 && mat >= 10) {
+                toBuild = BUILDING.SOLAR_PANEL;
+                reason = `net power low: ${(net[RESOURCE.POWER] || 0).toFixed(1)}`;
+            }
+            // Mining when materials getting low
+            else if (mat < 80 && pwr > 10 && mat >= 15) {
+                toBuild = BUILDING.MINING_DRILL;
+                reason = `materials low: ${Math.floor(mat)}`;
+            }
+            // Storage when things are full
+            else if (mat > 150 && s.maxStorage[RESOURCE.POWER] < 200) {
+                toBuild = BUILDING.STORAGE_DEPOT;
+                reason = 'need more storage';
+            }
+            // Tier 2+ buildings when available and affordable
+            else if (s.unlockedTiers && s.unlockedTiers.includes(2) && mat >= 40) {
+                const options = [];
+                if ((net[RESOURCE.FOOD] || 0) < 3) options.push(BUILDING.HYDROPONICS_LAB);
+                if ((net[RESOURCE.POWER] || 0) < 10) options.push(BUILDING.SOLAR_FARM);
+                if (!Buildings.hasMedicalBay(s)) options.push(BUILDING.MEDICAL_BAY);
+                if (options.length > 0) {
+                    toBuild = options[Math.floor(Math.random() * options.length)];
+                    reason = 'tier 2 expansion';
+                }
+            }
+            // Tier 3 — terraform-focused
+            else if (s.unlockedTiers && s.unlockedTiers.includes(3) && mat >= 70) {
+                const t3 = [];
+                if (pwr > 20) t3.push(BUILDING.TERRAFORMING_TOWER);
+                if (pwr > 15 && water > 10) t3.push(BUILDING.BIODOME);
+                if ((net[RESOURCE.POWER] || 0) < 15) t3.push(BUILDING.FUSION_REACTOR);
+                if (mat < 100) t3.push(BUILDING.ADVANCED_DRILL);
+                if (t3.length > 0) {
+                    toBuild = t3[Math.floor(Math.random() * t3.length)];
+                    reason = 'tier 3 expansion';
+                }
+            }
+
+            if (toBuild) {
+                const placed = this._autoPlace(toBuild);
+                if (placed) {
+                    this.stats.buildingsPlaced++;
+                    this._lastBuildTick = this.tickCount;
+                    if (this._verbose) {
+                        console.log(`%c[Autoplay] Built ${toBuild}%c (${reason}) — total: ${s.buildings.length}, mat: ${Math.floor(s.resources[RESOURCE.MATERIALS])}`,
+                            'color:#27AE60;font-weight:bold', 'color:#6B8E5A');
+                    }
+                } else if (this._verbose) {
+                    console.log(`%c[Autoplay] Failed to place ${toBuild}%c (${reason})`, 'color:#C0392B', 'color:#8B6E5C');
+                }
+            }
+
+            // Assign idle NPCs to unoccupied buildings
+            for (const npc of NPC.list) {
+                if (npc.assignedBuildingId !== null) continue;
+                const available = WorkSystem.getStaffableBuildings(npc, s);
+                if (available.length > 0) {
+                    // Prefer faction-matched buildings
+                    const matched = available.filter(b => {
+                        if (npc.faction === FACTION.GREEN && GREEN_BUILDINGS.includes(b.type)) return true;
+                        if (npc.faction === FACTION.RED && RED_BUILDINGS.includes(b.type)) return true;
+                        return false;
+                    });
+                    const pick = matched.length > 0 ? matched[0] : available[0];
+                    WorkSystem.assign(npc, pick);
+                }
+            }
+        } catch (e) {
+            this._bug('DECISION_ERROR', `Exception in _makeDecision: ${e.message}`, e);
         }
     },
 
     _autoPlace(type) {
-        const s = Game.state;
-        const def = BUILDING_DEFS[type];
-        if (!def) return false;
-        if (s.resources[RESOURCE.MATERIALS] < def.cost) return false;
+        try {
+            const s = Game.state;
+            const def = BUILDING_DEFS[type];
+            if (!def) { if (this._verbose) console.log('[Autoplay] No def for', type); return false; }
+            if (s.resources[RESOURCE.MATERIALS] < def.cost) {
+                if (this._verbose) console.log(`[Autoplay] Can't afford ${type}: need ${def.cost}, have ${Math.floor(s.resources[RESOURCE.MATERIALS])}`);
+                return false;
+            }
 
-        // Find HQ center
-        const hq = s.buildings[0];
-        if (!hq) return false;
-        const cx = hq.col + 1;
-        const cy = hq.row + 1;
+            // Find HQ center
+            const hq = s.buildings[0];
+            if (!hq) { if (this._verbose) console.log('[Autoplay] No HQ found'); return false; }
+            const cx = hq.col + 1;
+            const cy = hq.row + 1;
 
-        // Spiral search
-        for (let dist = 2; dist < 25; dist++) {
-            for (let dr = -dist; dr <= dist; dr++) {
-                for (let dc = -dist; dc <= dist; dc++) {
-                    if (Math.abs(dr) !== dist && Math.abs(dc) !== dist) continue;
-                    const col = cx + dc;
-                    const row = cy + dr;
-                    if (Grid.canPlace(col, row, def.width, def.height)) {
-                        return Buildings.place(s, type, col, row);
+            // Spiral search
+            for (let dist = 2; dist < 25; dist++) {
+                for (let dr = -dist; dr <= dist; dr++) {
+                    for (let dc = -dist; dc <= dist; dc++) {
+                        if (Math.abs(dr) !== dist && Math.abs(dc) !== dist) continue;
+                        const col = cx + dc;
+                        const row = cy + dr;
+                        if (Grid.canPlace(col, row, def.width, def.height)) {
+                            const ok = Buildings.place(s, type, col, row);
+                            if (!ok && this._verbose) {
+                                console.log(`[Autoplay] Buildings.place returned false for ${type} at (${col}, ${row})`);
+                            }
+                            return ok;
+                        }
                     }
                 }
             }
+            if (this._verbose) console.log(`[Autoplay] No valid tile found for ${type} within dist 25`);
+            return false;
+        } catch (e) {
+            this._bug('PLACE_ERROR', `Exception in _autoPlace(${type}): ${e.message}`, e);
+            return false;
         }
-        return false;
     },
 
     // ==================== Player Movement ====================
