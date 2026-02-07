@@ -60,6 +60,27 @@ const Buildings = {
             }
         }
 
+        // Check if player is now boxed in (no walkable cardinal neighbors)
+        const pt2 = Player.getTile();
+        const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+        let hasExit = false;
+        for (const [dc, dr] of dirs) {
+            const c = pt2.col + dc;
+            const r = pt2.row + dr;
+            if (c >= 0 && c < GRID_COLS && r >= 0 && r < GRID_ROWS && Grid.isWalkable(c, r)) {
+                hasExit = true;
+                break;
+            }
+        }
+        if (!hasExit) {
+            const escape = Grid.findWalkableNear(pt2.col, pt2.row, 10);
+            if (escape) {
+                Player.x = escape.col * TILE_SIZE;
+                Player.y = escape.row * TILE_SIZE;
+                Player.moveTarget = null;
+            }
+        }
+
         return true;
     },
 
