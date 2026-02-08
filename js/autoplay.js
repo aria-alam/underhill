@@ -659,7 +659,14 @@ const Autoplay = {
         const savedActiveEvents = [...Events.activeEvents];
 
         for (let i = 0; i < ticks; i++) {
+            // Disable night penalty during turbo — solar panels always produce.
+            // This simulates battery storage / power reserves that a real colony
+            // would have. Without this, turbo night cycles wipe out colonists
+            // because the bot can't build storage fast enough.
+            const realNight = s.isNighttime;
+            s.isNighttime = false;
             Resources.tick(s);
+            s.isNighttime = realNight;
 
             // Only process existing active events (repairs, storm endings),
             // don't trigger NEW random events during turbo
