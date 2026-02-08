@@ -243,8 +243,13 @@ const Dialogue = {
             for (let i = 0; i < this.choiceRects.length; i++) {
                 const r = this.choiceRects[i];
                 if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-                    this.choiceIndex = r.index;
-                    this._confirmBuild();
+                    if (this.choiceIndex === r.index) {
+                        // Second tap on same item — confirm build
+                        this._confirmBuild();
+                    } else {
+                        // First tap — select item
+                        this.choiceIndex = r.index;
+                    }
                     return;
                 }
             }
@@ -525,7 +530,9 @@ const Dialogue = {
         ctx.fillStyle = COLORS.POWER;
         ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText('BUILD  [W/S Navigate  E Confirm  Esc Cancel]', 16, boxY + 22);
+        const isMobile = Input.isTouchDevice;
+        ctx.fillText(isMobile ? 'BUILD  [Swipe to scroll  Tap to select  Tap again to build]'
+            : 'BUILD  [W/S Navigate  E Confirm  Esc Cancel]', 16, boxY + 22);
 
         // Build items (show 4 at a time)
         this.choiceRects = [];

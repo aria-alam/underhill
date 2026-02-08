@@ -13,6 +13,11 @@ const Input = {
     interactPressed: false,
     isTouchDevice: false,
 
+    // Touch tracking for swipe-to-scroll in menus
+    _touchStartY: 0,
+    _touchStartX: 0,
+    _touchWasDrag: false,
+
     // D-pad and interact button rects (set during UI render)
     dpadCenter: { x: 80, y: 0 },
     dpadRadius: 40,
@@ -221,8 +226,17 @@ const Input = {
                 if (UI.handleClick(x, y, this.gameState)) continue;
             }
 
-            // Check dialogue tap
+            // Track touch start for swipe detection in menus
+            this._touchStartX = x;
+            this._touchStartY = y;
+            this._touchWasDrag = false;
+
+            // Dialogue: don't handle tap on touchstart for build menus
+            // (wait for touchend to distinguish tap vs swipe scroll)
             if (Dialogue.active) {
+                if (Dialogue.isBuildMenu) {
+                    continue; // handled on touchend
+                }
                 Dialogue.handleClick(x, y);
                 continue;
             }
@@ -261,6 +275,19 @@ const Input = {
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
 
+            // Swipe scroll in build menu
+            if (Dialogue.active && Dialogue.isBuildMenu) {
+                const dy = y - this._touchStartY;
+                if (Math.abs(dy) > 15) {
+                    this._touchWasDrag = true;
+                    // Scroll by 1 item per 40px of drag
+                    const scrollDir = dy < 0 ? 1 : -1;
+                    this._touchStartY = y;
+                    Dialogue.navigateChoice(scrollDir);
+                }
+                continue;
+            }
+
             const dpad = this._getDpadDir(x, y);
             if (dpad) {
                 this.dpadDir = dpad;
@@ -270,8 +297,21 @@ const Input = {
 
     onTouchEnd(e) {
         e.preventDefault();
+
+        // Build menu: handle tap (not drag) on touchend
+        if (Dialogue.active && Dialogue.isBuildMenu && !this._touchWasDrag) {
+            const touch = e.changedTouches[0];
+            if (touch) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                Dialogue.handleClick(x, y);
+            }
+        }
+
         this.dpadDir = null;
         this.interactPressed = false;
+        this._touchWasDrag = false;
     },
 
     _getDpadDir(x, y) {
