@@ -530,7 +530,6 @@ const Dialogue = {
         ctx.fillStyle = COLORS.POWER;
         ctx.font = 'bold 14px monospace';
         ctx.textAlign = 'left';
-        const isMobile = Input.isTouchDevice;
         ctx.fillText(isMobile ? 'BUILD  [Swipe to scroll  Tap to select  Tap again to build]'
             : 'BUILD  [W/S Navigate  E Confirm  Esc Cancel]', 16, boxY + 22);
 
