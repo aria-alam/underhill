@@ -174,6 +174,11 @@ const Input = {
     },
 
     onClick(e) {
+        // On touch devices, all input is handled by touch events — skip click
+        // (prevents mobile browsers firing a synthetic click after touchstart,
+        //  which would double-trigger Game.newGame() or advance dialogues)
+        if (this.isTouchDevice) return;
+
         // Resume AudioContext on user gesture (browsers require this)
         if (typeof Music !== 'undefined' && Music.ctx && Music.ctx.state === 'suspended') {
             Music.ctx.resume();
