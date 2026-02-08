@@ -29,6 +29,10 @@ const Input = {
             window.addEventListener('keydown', (e) => this.onKeyDown(e));
             window.addEventListener('keyup', (e) => this.onKeyUp(e));
 
+            // Clear all held keys when window loses focus (fixes stuck movement
+            // when CMD+D or other shortcuts steal focus before keyup fires)
+            window.addEventListener('blur', () => { this.keys = {}; });
+
             // Touch
             canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
             canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
