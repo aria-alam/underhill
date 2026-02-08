@@ -368,8 +368,15 @@ const UI = {
             ctx.fillStyle = COLORS.UI_LIGHT;
             ctx.fillText(isMuted ? 'VOL' : 'MUTE', muteX + btnW / 2, y + 19);
 
-            // Hide new game button on mobile (accessible via browser refresh)
-            this.newGameButton = { x: -100, y: -100, w: 0, h: 0 };
+            // New game button
+            const newX = muteX + btnW + gap;
+            this.newGameButton = { x: newX, y, w: btnW, h: btnH };
+            ctx.fillStyle = 'rgba(80, 60, 40, 0.8)';
+            ctx.fillRect(newX, y, btnW, btnH);
+            ctx.strokeStyle = COLORS.METAL;
+            ctx.strokeRect(newX, y, btnW, btnH);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText('NEW', newX + btnW / 2, y + 19);
 
             ctx.textAlign = 'left';
         } else {
