@@ -351,13 +351,16 @@ const Autoplay = {
         }
 
         // Stuck detection — if no resource change in 30 ticks
-        // Check ALL resources including materials and building count
+        // Include sol, terraform %, and population so stable colonies don't false-positive
         const resSnapshot = JSON.stringify([
             Math.floor(s.resources[RESOURCE.POWER]),
             Math.floor(s.resources[RESOURCE.WATER]),
             Math.floor(s.resources[RESOURCE.FOOD]),
             Math.floor(s.resources[RESOURCE.MATERIALS]),
             s.buildings.length,
+            s.sol,
+            Math.floor(s.terraformPercent * 10),
+            s.resources[RESOURCE.POPULATION],
         ]);
         if (resSnapshot === this.lastResources) {
             this.stuckCounter++;
@@ -487,9 +490,34 @@ const Autoplay = {
                 if (netFood < 3) options.push(BUILDING.HYDROPONICS_LAB);
                 if (netPwr < 10) options.push(BUILDING.SOLAR_FARM);
                 if (!Buildings.hasMedicalBay(s)) options.push(BUILDING.MEDICAL_BAY);
+                if (has(BUILDING.RESEARCH_LAB) < 1) options.push(BUILDING.RESEARCH_LAB);
                 if (options.length > 0) {
                     toBuild = options[Math.floor(Math.random() * options.length)];
                     reason = 'tier 2 expansion';
+                }
+            }
+            // === Keep growing toward tier 3 (need 20 pop) ===
+            else if (pop < 20 && mat >= 15) {
+                // Scale up production and housing to push population higher
+                if (s.popCapacity - pop < 4 && mat >= 30) {
+                    toBuild = BUILDING.HABITAT;
+                    reason = `growing toward tier 3 (pop ${pop}/20, cap ${s.popCapacity})`;
+                } else if (netFood < pop * 0.5) {
+                    toBuild = has(BUILDING.HYDROPONICS_LAB) < 2 && s.unlockedTiers.includes(2)
+                        ? BUILDING.HYDROPONICS_LAB : BUILDING.GREENHOUSE;
+                    reason = `need more food for growth (net: ${netFood.toFixed(1)})`;
+                } else if (netWater < pop * 0.5) {
+                    toBuild = BUILDING.WATER_EXTRACTOR;
+                    reason = `need more water for growth (net: ${netWater.toFixed(1)})`;
+                } else if (netO2 < pop * 0.5) {
+                    toBuild = BUILDING.O2_GENERATOR;
+                    reason = `need more O2 for growth (net: ${netO2.toFixed(1)})`;
+                } else if (netPwr < 5) {
+                    toBuild = s.unlockedTiers.includes(2) ? BUILDING.SOLAR_FARM : BUILDING.SOLAR_PANEL;
+                    reason = 'need more power for growth';
+                } else if (has(BUILDING.STORAGE_DEPOT) < 3 && mat >= 25) {
+                    toBuild = BUILDING.STORAGE_DEPOT;
+                    reason = 'more storage for growing colony';
                 }
             }
             // === Tier 3 buildings ===
@@ -502,6 +530,19 @@ const Autoplay = {
                 if (t3.length > 0) {
                     toBuild = t3[Math.floor(Math.random() * t3.length)];
                     reason = 'tier 3 expansion';
+                }
+            }
+            // === Late game: keep scaling and terraforming ===
+            else if (pop >= 20 && mat >= 30) {
+                const late = [];
+                if (s.popCapacity - pop < 4) late.push(BUILDING.HABITAT);
+                if (netPwr < 10) late.push(s.unlockedTiers.includes(3) ? BUILDING.FUSION_REACTOR : BUILDING.SOLAR_FARM);
+                if (netFood < pop * 0.4) late.push(BUILDING.HYDROPONICS_LAB);
+                if (has(BUILDING.TERRAFORMING_TOWER) < 3 && s.unlockedTiers.includes(3)) late.push(BUILDING.TERRAFORMING_TOWER);
+                if (has(BUILDING.BIODOME) < 2 && s.unlockedTiers.includes(3)) late.push(BUILDING.BIODOME);
+                if (late.length > 0) {
+                    toBuild = late[Math.floor(Math.random() * late.length)];
+                    reason = 'late game expansion';
                 }
             }
 
