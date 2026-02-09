@@ -255,9 +255,14 @@ const NPC = {
             npc.y = newY;
         }
 
-        // If stuck, go back to idle
+        // If stuck, teleport home instead of idling in place
         const newDist = Math.sqrt((npc.targetX - npc.x) ** 2 + (npc.targetY - npc.y) ** 2);
         if (Math.abs(newDist - dist) < 0.1) {
+            const home = Grid.findWalkableNear(npc.homeCol, npc.homeRow, 3);
+            if (home) {
+                npc.x = home.col * TILE_SIZE;
+                npc.y = home.row * TILE_SIZE;
+            }
             npc.state = 'idle';
             npc.idleTimer = NPC_IDLE_MIN;
         }

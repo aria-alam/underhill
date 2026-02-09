@@ -301,8 +301,8 @@ const EVENT_TYPE = {
 
 // Event config
 const EVENT_CONFIG = {
-    MIN_INTERVAL: 30,    // minimum seconds between events
-    MAX_INTERVAL: 60,    // maximum seconds between events
+    MIN_INTERVAL: 20,    // minimum seconds between events
+    MAX_INTERVAL: 45,    // maximum seconds between events
     [EVENT_TYPE.DUST_STORM]: {
         name: 'Dust Storm!',
         duration: 30,

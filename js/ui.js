@@ -228,10 +228,14 @@ const UI = {
         }
         if (drainReason) {
             const hpX = 10;
-            ctx.fillStyle = drainColor;
-            ctx.font = 'bold 9px monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText(drainReason, hpX + 50, barY + 19);
+            // Blink starving indicator for urgency
+            const blink = drainReason === 'STARVING' && Math.floor(Date.now() / 500) % 2 === 0;
+            if (!blink) {
+                ctx.fillStyle = drainColor;
+                ctx.font = 'bold 9px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(drainReason, hpX + 50, barY + 19);
+            }
         }
     },
 
@@ -507,7 +511,7 @@ const UI = {
         const py = facing.row * TILE_SIZE + Renderer.offsetY - 4;
 
         ctx.fillStyle = 'rgba(44, 24, 16, 0.8)';
-        const label = Input.isTouchDevice ? 'TAP' : '[E]';
+        const label = Input.isTouchDevice ? 'ACT' : '[E]';
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'center';
         const tw = ctx.measureText(label).width + 8;

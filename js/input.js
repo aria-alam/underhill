@@ -70,7 +70,9 @@ const Input = {
             return;
         }
 
-        if (this.keys[key]) return; // ignore repeats
+        // Allow key repeat for menu navigation, ignore repeats otherwise
+        if (this.keys[key] && !(Dialogue.active && (Dialogue.choices || Dialogue.isBuildMenu) &&
+            (key === 'w' || key === 's' || key === 'arrowup' || key === 'arrowdown'))) return;
         this.keys[key] = true;
 
         // Interact / advance dialogue
@@ -248,10 +250,10 @@ const Input = {
             this._touchStartY = y;
             this._touchWasDrag = false;
 
-            // Dialogue: don't handle tap on touchstart for build menus
-            // (wait for touchend to distinguish tap vs swipe scroll)
+            // Dialogue: defer taps for build menus and choice menus to touchend
+            // (to distinguish tap vs swipe scroll)
             if (Dialogue.active) {
-                if (Dialogue.isBuildMenu) {
+                if (Dialogue.isBuildMenu || Dialogue.choices) {
                     continue; // handled on touchend
                 }
                 Dialogue.handleClick(x, y);
@@ -292,12 +294,11 @@ const Input = {
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
 
-            // Swipe scroll in build menu
-            if (Dialogue.active && Dialogue.isBuildMenu) {
+            // Swipe scroll in build menu and choice menus
+            if (Dialogue.active && (Dialogue.isBuildMenu || Dialogue.choices)) {
                 const dy = y - this._touchStartY;
-                if (Math.abs(dy) > 15) {
+                if (Math.abs(dy) > 8) {
                     this._touchWasDrag = true;
-                    // Scroll by 1 item per 40px of drag
                     const scrollDir = dy < 0 ? 1 : -1;
                     this._touchStartY = y;
                     Dialogue.navigateChoice(scrollDir);
@@ -315,10 +316,10 @@ const Input = {
     onTouchEnd(e) {
         e.preventDefault();
 
-        // Build menu: handle tap (not drag) on touchend
+        // Build/choice menu: handle tap (not drag) on touchend
         // Skip if this touch opened the menu via ACT button OR started on the ACT button area
         const touchStartedOnAct = this._isInRect(this._touchStartX, this._touchStartY, this.interactBtn);
-        if (Dialogue.active && Dialogue.isBuildMenu && !this._touchWasDrag && !this.interactPressed && !touchStartedOnAct) {
+        if (Dialogue.active && (Dialogue.isBuildMenu || Dialogue.choices) && !this._touchWasDrag && !this.interactPressed && !touchStartedOnAct) {
             const touch = e.changedTouches[0];
             if (touch) {
                 const rect = this.canvas.getBoundingClientRect();

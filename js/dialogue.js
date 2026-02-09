@@ -53,6 +53,7 @@ const Dialogue = {
 
     openBuildMenu(gameState, col, row) {
         if (typeof Music !== 'undefined') Music.playSFX('menu_open');
+        this.buildOpenedAt = Date.now();
         this.active = true;
         this.isBuildMenu = true;
         this.speaker = 'BUILD';
@@ -81,13 +82,17 @@ const Dialogue = {
         this.buildItems = types.map(type => {
             const def = BUILDING_DEFS[type];
             const rule = ADJACENCY_BONUSES[type];
-            // Determine unlock status
+            // Determine unlock status and tier
             let locked = false;
             let unlockReq = 0;
+            let itemTier = 1;
             for (const [tierNum, tier] of Object.entries(UNLOCK_TIERS)) {
-                if (tier.buildings.includes(type) && peakPop < tier.pop) {
-                    locked = true;
-                    unlockReq = tier.pop;
+                if (tier.buildings.includes(type)) {
+                    itemTier = parseInt(tierNum);
+                    if (peakPop < tier.pop) {
+                        locked = true;
+                        unlockReq = tier.pop;
+                    }
                     break;
                 }
             }
@@ -101,6 +106,7 @@ const Dialogue = {
                 canPlace: locked ? false : Grid.canPlace(col, row, def.width, def.height),
                 canAfford: locked ? false : gameState.resources[RESOURCE.MATERIALS] >= def.cost,
                 locked,
+                tier: itemTier,
             };
         });
     },
@@ -146,7 +152,7 @@ const Dialogue = {
             const charsToAdd = Math.floor(this.charTimer * DIALOGUE_TEXT_SPEED);
             if (charsToAdd > 0) {
                 this.charIndex += charsToAdd;
-                this.charTimer = 0;
+                this.charTimer -= charsToAdd / DIALOGUE_TEXT_SPEED; // keep remainder
             }
         }
     },
@@ -222,14 +228,18 @@ const Dialogue = {
 
     navigateChoice(dir) {
         if (this.isBuildMenu) {
-            this.choiceIndex = Math.max(0, Math.min(this.choiceIndex + dir, this.buildItems.length - 1));
+            this.choiceIndex += dir;
+            if (this.choiceIndex < 0) this.choiceIndex = this.buildItems.length - 1;
+            if (this.choiceIndex >= this.buildItems.length) this.choiceIndex = 0;
             // Scroll to keep selection visible
             if (this.choiceIndex < this.buildScroll) this.buildScroll = this.choiceIndex;
             if (this.choiceIndex >= this.buildScroll + 4) this.buildScroll = this.choiceIndex - 3;
             return;
         }
         if (!this.choices) return;
-        this.choiceIndex = Math.max(0, Math.min(this.choiceIndex + dir, this.choices.length - 1));
+        this.choiceIndex += dir;
+        if (this.choiceIndex < 0) this.choiceIndex = this.choices.length - 1;
+        if (this.choiceIndex >= this.choices.length) this.choiceIndex = 0;
         // Scroll to keep selection visible (max 3 visible choices)
         if (this.choiceIndex < this.choiceScroll) this.choiceScroll = this.choiceIndex;
         if (this.choiceIndex >= this.choiceScroll + 3) this.choiceScroll = this.choiceIndex - 2;
@@ -239,6 +249,8 @@ const Dialogue = {
         if (!this.active) return;
 
         if (this.isBuildMenu) {
+            // Ignore clicks within 300ms of opening (prevents tap-to-open selecting)
+            if (Date.now() - this.buildOpenedAt < 300) return;
             // Check if click is on a build item
             for (let i = 0; i < this.choiceRects.length; i++) {
                 const r = this.choiceRects[i];
@@ -546,6 +558,20 @@ const Dialogue = {
             const item = this.buildItems[idx];
             const iy = startY + vi * itemH;
             const selected = idx === this.choiceIndex;
+
+            // Tier separator
+            const prevItem = idx > 0 ? this.buildItems[idx - 1] : null;
+            if (prevItem && item.tier !== prevItem.tier) {
+                ctx.strokeStyle = COLORS.METAL;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(16, iy - 1);
+                ctx.lineTo(boxW - 16, iy - 1);
+                ctx.stroke();
+                ctx.fillStyle = COLORS.METAL;
+                ctx.font = '9px monospace';
+                ctx.fillText(`— TIER ${item.tier} —`, boxW - 90, iy - 3);
+            }
 
             // Selection highlight
             if (selected) {

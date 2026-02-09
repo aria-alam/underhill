@@ -59,6 +59,7 @@ const Events = {
 
         if (Buildings.hasLandingPad(gameState) && gameState.popCapacity > gameState.resources[RESOURCE.POPULATION]) {
             eventTypes.push(EVENT_TYPE.NEW_COLONISTS);
+            eventTypes.push(EVENT_TYPE.NEW_COLONISTS); // double weight for faster growth
         }
 
         const type = eventTypes[Math.floor(Math.random() * eventTypes.length)];

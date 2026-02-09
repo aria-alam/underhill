@@ -50,7 +50,7 @@ const Game = {
             || window.location.hash === '#test';
 
         // Initialize subsystems
-        Grid.init();
+        try { Grid.init(); } catch(e) { console.error('[init] Grid.init failed:', e); }
         Renderer.init(canvas);
         UI.init();
         Events.init();
@@ -317,14 +317,10 @@ const Game = {
             crew.dialogueQueue.push({
                 showBubble: true,
                 lines: [
-                    'Commander! Glad you made it in one piece.',
-                    'I\'m Dr. Kimura, your chief engineer. I landed with the advance team and I\'ve been collecting rock samples around the site.',
-                    'The geology here is promising — lots of iron oxide and possible subsurface ice. Should help us build.',
-                    'First priority: solar panels for power. Face an empty tile and press E to open the build menu.',
-                    'And get a Mining Drill up as soon as you can — we need a steady supply of materials to keep building. They only cost 15 MAT and produce +2 materials per second. Place them near dark rock for a 30% yield bonus.',
-                    'For food, you\'ll need a greenhouse — but it requires power and water. So build solar panels and a water extractor first.',
-                    'One more thing: where you place buildings matters. Cluster solar panels for bonus power. Put water extractors near ice. Greenhouses near water.',
-                    'Once we have power, food, and housing, more colonists will arrive. Build a Landing Pad and Habitats to welcome them!',
+                    'Commander! Glad you made it. I\'m Dr. Kimura, your chief engineer.',
+                    'First priority: face an empty tile and press E to build. We need solar panels for power, then a water extractor and O2 generator.',
+                    'Get a Mining Drill up early — 15 MAT for +2 materials/s. Place near dark rock for a 30% bonus.',
+                    'For colonists: build a Landing Pad and Habitats. Talk to me anytime — I\'ve got tips on building placement.',
                 ],
             });
         }
@@ -416,6 +412,7 @@ const Game = {
                         }
                         this.state.paused = false;
                         UI.addNotification(`Welcome to Mars, ${Player.name}. Chill mode — just vibes and building.`, 'success');
+                        UI.addNotification('Walk with WASD. Press E near things to interact.', 'info');
                     },
                 },
                 {
@@ -440,6 +437,7 @@ const Game = {
                         }
                         this.state.paused = false;
                         UI.addNotification(`Welcome to Mars, ${Player.name}. Conflict mode — factions will emerge at 6 pop.`, 'success');
+                        UI.addNotification('Walk with WASD. Press E near things to interact.', 'info');
                     },
                 },
             ],

@@ -182,8 +182,9 @@ const Interaction = {
         }
 
         const choices = [];
+        choices.push({ label: 'Close', action: () => {} });
 
-        // Demolish option (not for HQ)
+        // Demolish option (not for HQ) — listed after Close so default is safe
         if (!def.indestructible) {
             const refund = Math.floor(def.cost * 0.5);
             choices.push({
@@ -195,8 +196,6 @@ const Interaction = {
                 }
             });
         }
-
-        choices.push({ label: 'Close', action: () => {} });
 
         Dialogue.open('SYSTEM', null, lines, choices, null, null, null);
     },

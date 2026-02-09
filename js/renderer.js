@@ -83,6 +83,9 @@ const Renderer = {
         // Buildings (viewport culled)
         this.drawBuildings(gameState);
 
+        // Building footprint preview
+        this.drawBuildPreview(gameState);
+
         // Entities (player + NPCs, Y-sorted, viewport culled)
         this.drawEntities(gameState);
 
@@ -102,6 +105,37 @@ const Renderer = {
 
         // Day/night cycle
         this.drawDayNight(gameState);
+    },
+
+    drawBuildPreview(gameState) {
+        if (!Dialogue.active || !Dialogue.isBuildMenu) return;
+        const item = Dialogue.buildItems[Dialogue.choiceIndex];
+        if (!item) return;
+
+        const def = BUILDING_DEFS[item.type];
+        const col = Dialogue.buildCol;
+        const row = Dialogue.buildRow;
+        const canPlace = item.canPlace && item.canAfford && !item.locked;
+        const ctx = this.ctx;
+
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = canPlace ? '#27AE60' : '#C0392B';
+        ctx.fillRect(
+            col * TILE_SIZE + this.offsetX,
+            row * TILE_SIZE + this.offsetY,
+            def.width * TILE_SIZE,
+            def.height * TILE_SIZE
+        );
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = canPlace ? '#27AE60' : '#C0392B';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+            col * TILE_SIZE + this.offsetX,
+            row * TILE_SIZE + this.offsetY,
+            def.width * TILE_SIZE,
+            def.height * TILE_SIZE
+        );
     },
 
     drawTerrain() {
