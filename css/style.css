@@ -73,6 +73,12 @@ html, body {
     color: #B8A898;
 }
 
+#about-panel .about-disclaimer {
+    font-size: 10px;
+    color: #7B8794;
+    margin-bottom: 12px;
+}
+
 #about-panel .about-credit {
     color: #F5E6D3;
     margin-bottom: 16px;
