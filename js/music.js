@@ -65,7 +65,7 @@ const Music = {
 
         // Load mute preference
         this.muted = localStorage.getItem('underhill_muted') === 'true';
-        this.masterGain.gain.value = this.muted ? 0 : 0.5;
+        this.masterGain.gain.value = this.muted ? 0 : 0.25;
 
         // Crossfade slot gains
         this.slotA.gain = this.ctx.createGain();
@@ -778,7 +778,7 @@ const Music = {
         const now = this.ctx.currentTime;
         this.masterGain.gain.cancelScheduledValues(now);
         this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-        this.masterGain.gain.linearRampToValueAtTime(this.muted ? 0 : 0.5, now + 0.3);
+        this.masterGain.gain.linearRampToValueAtTime(this.muted ? 0 : 0.25, now + 0.3);
     },
 
     // === SFX ===

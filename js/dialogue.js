@@ -408,21 +408,22 @@ const Dialogue = {
             const maxVisibleChoices = 3;
             const totalChoices = this.choices.length;
 
-            // Show item count when there are more choices than visible
+            // Show item count and scroll hint when there are more choices than visible
             if (totalChoices > maxVisibleChoices) {
-                ctx.fillStyle = COLORS.METAL;
-                ctx.font = '10px monospace';
+                const scrollHint = Input.isTouchDevice ? 'Swipe to scroll' : 'W/S to scroll';
+                ctx.fillStyle = COLORS.POWER;
+                ctx.font = 'bold 10px monospace';
                 ctx.textAlign = 'right';
-                ctx.fillText(`${this.choiceIndex + 1}/${totalChoices}  [W/S to scroll]`, boxW - 16, choiceY - 6);
+                ctx.fillText(`${this.choiceIndex + 1}/${totalChoices}  [${scrollHint}]`, boxW - 16, choiceY - 6);
                 ctx.textAlign = 'left';
             }
 
             // Draw scroll-up indicator
             if (this.choiceScroll > 0) {
-                const blink = Math.floor(Date.now() / 500) % 2 === 0;
-                ctx.fillStyle = blink ? COLORS.POWER : COLORS.METAL;
-                ctx.font = '11px monospace';
-                ctx.fillText('  \u25B2', textX, choiceY - 6);
+                const blink = Math.floor(Date.now() / 400) % 2 === 0;
+                ctx.fillStyle = blink ? COLORS.POWER : COLORS.UI_LIGHT;
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText('  \u25B2 more above', textX, choiceY - 6);
             }
 
             for (let vi = 0; vi < maxVisibleChoices; vi++) {
@@ -441,10 +442,10 @@ const Dialogue = {
             // Draw scroll-down indicator
             if (this.choiceScroll + maxVisibleChoices < totalChoices) {
                 const bottomY = choiceY + maxVisibleChoices * 20 - 6;
-                const blink = Math.floor(Date.now() / 500) % 2 === 0;
-                ctx.fillStyle = blink ? COLORS.POWER : COLORS.METAL;
-                ctx.font = '11px monospace';
-                ctx.fillText('  \u25BC more options below', textX, bottomY);
+                const blink = Math.floor(Date.now() / 400) % 2 === 0;
+                ctx.fillStyle = blink ? COLORS.POWER : COLORS.UI_LIGHT;
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText('  \u25BC more below', textX, bottomY);
             }
         }
 
@@ -631,19 +632,30 @@ const Dialogue = {
             ctx.fillText('Bonus: ' + selectedItem.tip, 16, boxY + boxH - 12);
         }
 
-        // Scroll indicators
+        // Scroll indicators — prominent blinking with labels
         if (this.buildScroll > 0) {
-            ctx.fillStyle = COLORS.UI_LIGHT;
-            ctx.font = '12px monospace';
+            const blink = Math.floor(Date.now() / 400) % 2 === 0;
+            ctx.fillStyle = blink ? COLORS.POWER : COLORS.UI_LIGHT;
+            ctx.font = 'bold 12px monospace';
             ctx.textAlign = 'right';
-            ctx.fillText('▲', boxW - 12, startY + 8);
+            ctx.fillText('▲ more', boxW - 12, startY + 8);
             ctx.textAlign = 'left';
         }
         if (this.buildScroll + maxVisible < this.buildItems.length) {
-            ctx.fillStyle = COLORS.UI_LIGHT;
-            ctx.font = '12px monospace';
+            const blink = Math.floor(Date.now() / 400) % 2 === 0;
+            ctx.fillStyle = blink ? COLORS.POWER : COLORS.UI_LIGHT;
+            ctx.font = 'bold 12px monospace';
             ctx.textAlign = 'right';
-            ctx.fillText('▼', boxW - 12, startY + maxVisible * itemH - 8);
+            ctx.fillText('▼ more', boxW - 12, startY + maxVisible * itemH - 8);
+            ctx.textAlign = 'left';
+        }
+
+        // Item count
+        if (this.buildItems.length > maxVisible) {
+            ctx.fillStyle = COLORS.POWER;
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${this.choiceIndex + 1}/${this.buildItems.length}`, boxW - 12, startY + maxVisible * itemH + 6);
             ctx.textAlign = 'left';
         }
     },
