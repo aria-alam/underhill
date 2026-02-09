@@ -316,7 +316,8 @@ const Input = {
         e.preventDefault();
 
         // Build menu: handle tap (not drag) on touchend
-        if (Dialogue.active && Dialogue.isBuildMenu && !this._touchWasDrag) {
+        // Skip if this touch just opened the menu via ACT button (interactPressed is still true)
+        if (Dialogue.active && Dialogue.isBuildMenu && !this._touchWasDrag && !this.interactPressed) {
             const touch = e.changedTouches[0];
             if (touch) {
                 const rect = this.canvas.getBoundingClientRect();
