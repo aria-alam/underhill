@@ -381,6 +381,13 @@ const Game = {
     },
 
     _promptPlayerName() {
+        // On mobile, canvas can't trigger the soft keyboard — use browser prompt()
+        if (Input.isTouchDevice) {
+            const name = prompt('Enter your name for the colony records:', 'Commander');
+            Player.name = (name && name.trim()) ? name.trim().slice(0, 16) : 'Commander';
+            this._promptColonyMode();
+            return;
+        }
         Dialogue.openNameEntry(
             'MISSION CONTROL',
             'Enter your name for the colony records:',

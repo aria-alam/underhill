@@ -16,7 +16,7 @@ const Interaction = {
         if (!facing) return;
         const { col, row } = facing;
 
-        // Check for NPC at facing tile
+        // Check for NPC at exact tile first
         if (typeof NPC !== 'undefined') {
             const npc = NPC.findAtTile(col, row);
             if (npc) {
@@ -37,6 +37,16 @@ const Interaction = {
         // Empty walkable tile — open build menu
         if (Grid.isWalkable(col, row)) {
             Dialogue.openBuildMenu(gameState, col, row);
+            return;
+        }
+
+        // Fallback: forgiving NPC search (2-tile range) for nearby NPCs
+        if (typeof NPC !== 'undefined') {
+            const npc = NPC.findAtTile(col, row, true);
+            if (npc) {
+                this.talkToNPC(npc, gameState);
+                return;
+            }
         }
     },
 
@@ -331,9 +341,9 @@ const Interaction = {
         if (!facing) return false;
         const { col, row } = facing;
 
-        // NPC check
+        // NPC check (forgiving range for hint display)
         if (typeof NPC !== 'undefined') {
-            const npc = NPC.findAtTile(col, row);
+            const npc = NPC.findAtTile(col, row, true);
             if (npc) return true;
         }
 

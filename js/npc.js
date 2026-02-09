@@ -350,13 +350,14 @@ const NPC = {
         ctx.textAlign = 'left';
     },
 
-    findAtTile(col, row) {
+    findAtTile(col, row, forgiving) {
         // Check exact tile first
         for (const npc of this.list) {
             const nc = Math.round(npc.x / TILE_SIZE);
             const nr = Math.round(npc.y / TILE_SIZE);
             if (nc === col && nr === row) return npc;
         }
+        if (!forgiving) return null;
         // Forgiving: check nearby tiles (2-tile Manhattan distance)
         let closest = null;
         let closestDist = Infinity;

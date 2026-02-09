@@ -316,14 +316,18 @@ const Input = {
         e.preventDefault();
 
         // Build menu: handle tap (not drag) on touchend
-        // Skip if this touch just opened the menu via ACT button (interactPressed is still true)
-        if (Dialogue.active && Dialogue.isBuildMenu && !this._touchWasDrag && !this.interactPressed) {
+        // Skip if this touch opened the menu via ACT button OR started on the ACT button area
+        const touchStartedOnAct = this._isInRect(this._touchStartX, this._touchStartY, this.interactBtn);
+        if (Dialogue.active && Dialogue.isBuildMenu && !this._touchWasDrag && !this.interactPressed && !touchStartedOnAct) {
             const touch = e.changedTouches[0];
             if (touch) {
                 const rect = this.canvas.getBoundingClientRect();
                 const x = touch.clientX - rect.left;
                 const y = touch.clientY - rect.top;
-                Dialogue.handleClick(x, y);
+                // Only forward taps that land on the build menu area (not on controls)
+                if (!this._isInRect(x, y, this.interactBtn)) {
+                    Dialogue.handleClick(x, y);
+                }
             }
         }
 

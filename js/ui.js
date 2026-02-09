@@ -154,7 +154,18 @@ const UI = {
             } else if (res.key === RESOURCE.POPULATION) {
                 ctx.fillStyle = '#7B8794';
                 ctx.font = '10px monospace';
-                ctx.fillText(`cap:${gameState.popCapacity || 0}`, x, 48);
+                const pop = gameState.resources[RESOURCE.POPULATION];
+                const cap = gameState.popCapacity || 0;
+                // Show colonist status hint
+                if (!Buildings.hasLandingPad(gameState) && cap > pop) {
+                    ctx.fillStyle = COLORS.POWER;
+                    ctx.fillText('Need Pad', x, 48);
+                } else if (cap <= pop && pop > 0) {
+                    ctx.fillStyle = COLORS.POWER;
+                    ctx.fillText('cap full', x, 48);
+                } else {
+                    ctx.fillText(`cap:${cap}`, x, 48);
+                }
             }
         });
     },
