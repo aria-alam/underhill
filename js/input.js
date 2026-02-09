@@ -85,6 +85,12 @@ const Input = {
 
         // Escape: universal unstick — clears all blocking states, or pauses if nothing is blocking
         if (key === 'escape') {
+            // Dismiss terraform win overlay
+            if (this.gameState.terraformWon && !this.gameState.terraformWinAcknowledged) {
+                this.gameState.terraformWinAcknowledged = true;
+                return;
+            }
+
             // Close about overlay if open
             const aboutOverlay = document.getElementById('about-overlay');
             if (aboutOverlay && aboutOverlay.style.display !== 'none') {
@@ -210,6 +216,12 @@ const Input = {
             const rect = this.canvas.getBoundingClientRect();
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
+
+            // Dismiss terraform win overlay on tap
+            if (this.gameState.terraformWon && !this.gameState.terraformWinAcknowledged) {
+                this.gameState.terraformWinAcknowledged = true;
+                continue;
+            }
 
             // If paused (and no dialogue), tap anywhere to unpause
             if (this.gameState.paused && !Dialogue.active) {

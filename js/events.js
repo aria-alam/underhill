@@ -135,6 +135,13 @@ const Events = {
                         'success'
                     );
                     if (typeof Music !== 'undefined') Music.playSFX('colonist_arrive');
+                } else {
+                    // Explain why colonists didn't arrive
+                    if (!Buildings.hasLandingPad(gameState)) {
+                        UI.addNotification('Colonists turned away — no Landing Pad.', 'warning');
+                    } else if (gameState.popCapacity <= gameState.resources[RESOURCE.POPULATION]) {
+                        UI.addNotification('Colonists turned away — no housing capacity. Build Habitats!', 'warning');
+                    }
                 }
                 break;
             }

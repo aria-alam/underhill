@@ -171,7 +171,24 @@ const Interaction = {
             lines.push(`Research Lab bonus: +${Math.round(researchBonus * 100)}% output`);
         }
 
-        Dialogue.open('SYSTEM', null, lines, null, null, null, null);
+        const choices = [];
+
+        // Demolish option (not for HQ)
+        if (!def.indestructible) {
+            const refund = Math.floor(def.cost * 0.5);
+            choices.push({
+                label: `Demolish (recover ${refund} MAT)`,
+                action: () => {
+                    Buildings.remove(gameState, building.id);
+                    gameState.resources[RESOURCE.MATERIALS] += refund;
+                    UI.addNotification(`${def.name} demolished.`, 'info');
+                }
+            });
+        }
+
+        choices.push({ label: 'Close', action: () => {} });
+
+        Dialogue.open('SYSTEM', null, lines, choices, null, null, null);
     },
 
     openHQMenu(gameState) {

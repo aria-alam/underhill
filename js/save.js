@@ -95,7 +95,7 @@ const Save = {
     },
 
     deleteSave() {
-        localStorage.removeItem(this.SAVE_KEY);
+        try { localStorage.removeItem(this.SAVE_KEY); } catch(e) {}
     },
 
     applyLoad(gameState, data) {

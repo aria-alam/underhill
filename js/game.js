@@ -99,43 +99,51 @@ const Game = {
     },
 
     newGame() {
-        Save.deleteSave();
-        this.state = this.createState();
-        Grid.init();
-        Resources.init(this.state);
-        Events.init();
-        UI.init();
-        NPC.init();
-        if (typeof Music !== 'undefined') Music.init();
-        // Kill any active dialogue without firing its onClose callback
-        // (prevents intro's callback from opening character creation in the new game)
-        Dialogue.onClose = null;
-        Dialogue.close();
+        console.log('[newGame] starting');
+        try {
+            try { Save.deleteSave(); } catch(e) { console.warn('deleteSave:', e); }
+            this.state = this.createState();
+            Grid.init();
+            Resources.init(this.state);
+            Events.init();
+            UI.init();
+            NPC.init();
+            if (typeof Music !== 'undefined') {
+                try { Music.init(); } catch(e) { console.warn('Music.init:', e); }
+            }
+            // Kill any active dialogue without firing its onClose callback
+            // (prevents intro's callback from opening character creation in the new game)
+            Dialogue.onClose = null;
+            Dialogue.close();
 
-        // Update input's reference to the new game state
-        Input.init(document.getElementById('gameCanvas'), this.state);
-        Renderer.dustStormAlpha = 0;
+            // Update input's reference to the new game state
+            Input.init(document.getElementById('gameCanvas'), this.state);
+            Renderer.dustStormAlpha = 0;
 
-        if (this.isTestMode) {
-            this._initTestMode();
-            return;
+            if (this.isTestMode) {
+                this._initTestMode();
+                return;
+            }
+
+            // Place HQ at center
+            this._placeHQ(Math.floor(GRID_COLS / 2) - 1, Math.floor(GRID_ROWS / 2) - 1);
+
+            // Spawn player adjacent to HQ
+            const hq = this.state.buildings[0];
+            const spawn = Grid.findWalkableNear(hq.col + 1, hq.row + 2, 5);
+            if (spawn) {
+                Player.init(spawn.col, spawn.row);
+            } else {
+                Player.init(Math.floor(GRID_COLS / 2), Math.floor(GRID_ROWS / 2) + 2);
+            }
+
+            // Spawn starting crew member
+            this._spawnStartingCrew();
+        } catch(e) {
+            console.error('[newGame] error during init:', e);
         }
-
-        // Place HQ at center
-        this._placeHQ(Math.floor(GRID_COLS / 2) - 1, Math.floor(GRID_ROWS / 2) - 1);
-
-        // Spawn player adjacent to HQ
-        const hq = this.state.buildings[0];
-        const spawn = Grid.findWalkableNear(hq.col + 1, hq.row + 2, 5);
-        if (spawn) {
-            Player.init(spawn.col, spawn.row);
-        } else {
-            Player.init(Math.floor(GRID_COLS / 2), Math.floor(GRID_ROWS / 2) + 2);
-        }
-
-        // Spawn starting crew member
-        this._spawnStartingCrew();
-        // Show intro
+        // Always show intro, even if something above failed
+        console.log('[newGame] showIntro');
         this._showIntro();
     },
 

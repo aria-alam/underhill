@@ -351,12 +351,25 @@ const NPC = {
     },
 
     findAtTile(col, row) {
+        // Check exact tile first
         for (const npc of this.list) {
             const nc = Math.round(npc.x / TILE_SIZE);
             const nr = Math.round(npc.y / TILE_SIZE);
             if (nc === col && nr === row) return npc;
         }
-        return null;
+        // Forgiving: check nearby tiles (2-tile Manhattan distance)
+        let closest = null;
+        let closestDist = Infinity;
+        for (const npc of this.list) {
+            const nc = Math.round(npc.x / TILE_SIZE);
+            const nr = Math.round(npc.y / TILE_SIZE);
+            const dist = Math.abs(nc - col) + Math.abs(nr - row);
+            if (dist <= 2 && dist < closestDist) {
+                closest = npc;
+                closestDist = dist;
+            }
+        }
+        return closest;
     },
 
     queueDialogue(npcId, entry) {

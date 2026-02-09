@@ -201,31 +201,63 @@ const UI = {
             ctx.font = '9px monospace';
             ctx.fillText(`${Math.ceil(stat.val)}`, bx + bw + 4, barY + 13);
         });
+
+        // HP drain reason — show why HP is dropping (priority: storm > cold > starving)
+        let drainReason = null;
+        let drainColor = null;
+        if (gameState.dustStormActive) {
+            drainReason = 'STORM DMG';
+            drainColor = COLORS.ORANGE;
+        } else if (gameState.isNighttime && !Player.isSheltered(gameState)) {
+            drainReason = 'FREEZING';
+            drainColor = COLORS.WATER;
+        } else if (Player.hunger <= 0) {
+            drainReason = 'STARVING';
+            drainColor = COLORS.DANGER;
+        }
+        if (drainReason) {
+            const hpX = 10;
+            ctx.fillStyle = drainColor;
+            ctx.font = 'bold 9px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(drainReason, hpX + 50, barY + 19);
+        }
     },
 
     drawNightWarning(ctx, gameState, canvasW, canvasH) {
-        if (!gameState.isNighttime) return;
+        if (gameState.isNighttime) {
+            const sheltered = Player.isSheltered(gameState);
+            const label = sheltered ? 'NIGHT (SHELTERED)' : 'NIGHT - SEEK SHELTER!';
+            const color = sheltered ? COLORS.WATER : COLORS.DANGER;
 
-        const sheltered = Player.isSheltered(gameState);
-        const label = sheltered ? 'NIGHT (SHELTERED)' : 'NIGHT - SEEK SHELTER!';
-        const color = sheltered ? COLORS.WATER : COLORS.DANGER;
+            ctx.fillStyle = 'rgba(44, 24, 16, 0.85)';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            const tw = ctx.measureText(label).width + 16;
+            const nx = canvasW / 2;
+            const ny = 82;
+            ctx.fillRect(nx - tw / 2, ny - 10, tw, 18);
+            ctx.fillStyle = color;
 
-        ctx.fillStyle = 'rgba(44, 24, 16, 0.85)';
-        ctx.font = 'bold 12px monospace';
-        ctx.textAlign = 'center';
-        const tw = ctx.measureText(label).width + 16;
-        const nx = canvasW / 2;
-        const ny = 82;
-        ctx.fillRect(nx - tw / 2, ny - 10, tw, 18);
-        ctx.fillStyle = color;
-
-        // Blink for danger
-        if (!sheltered && Math.floor(Date.now() / 500) % 2 === 0) {
-            ctx.fillText(label, nx, ny + 3);
-        } else if (sheltered) {
-            ctx.fillText(label, nx, ny + 3);
+            // Blink for danger
+            if (!sheltered && Math.floor(Date.now() / 500) % 2 === 0) {
+                ctx.fillText(label, nx, ny + 3);
+            } else if (sheltered) {
+                ctx.fillText(label, nx, ny + 3);
+            }
+            ctx.textAlign = 'left';
+        } else if (Player.energy <= 0) {
+            // Exhaustion warning (only when NOT nighttime, to avoid overlap)
+            const label = 'EXHAUSTED - Rest at Command Center';
+            ctx.fillStyle = 'rgba(44, 24, 16, 0.85)';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            const tw = ctx.measureText(label).width + 16;
+            ctx.fillRect(canvasW / 2 - tw / 2, 72, tw, 18);
+            ctx.fillStyle = COLORS.POWER;
+            ctx.fillText(label, canvasW / 2, 85);
+            ctx.textAlign = 'left';
         }
-        ctx.textAlign = 'left';
     },
 
     drawSolCounter(ctx, gameState, canvasW) {
@@ -305,6 +337,28 @@ const UI = {
     drawTerraformWin(ctx, gameState, canvasW, canvasH) {
         if (!gameState.terraformWon) return;
 
+        // Auto-dismiss after 5 seconds
+        if (!gameState.terraformWinShownAt) {
+            gameState.terraformWinShownAt = Date.now();
+        }
+        if (!gameState.terraformWinAcknowledged && Date.now() - gameState.terraformWinShownAt > 5000) {
+            gameState.terraformWinAcknowledged = true;
+        }
+
+        // After dismissal, show subtle badge instead
+        if (gameState.terraformWinAcknowledged) {
+            ctx.fillStyle = 'rgba(39, 174, 96, 0.85)';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'right';
+            const badge = 'TERRAFORM 100% \u2713';
+            const bw = ctx.measureText(badge).width + 8;
+            ctx.fillRect(canvasW - 10 - bw, 100, bw, 14);
+            ctx.fillStyle = COLORS.UI_LIGHT;
+            ctx.fillText(badge, canvasW - 14, 111);
+            ctx.textAlign = 'left';
+            return;
+        }
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(0, 0, canvasW, canvasH);
 
@@ -320,7 +374,7 @@ const UI = {
 
         ctx.font = '12px monospace';
         ctx.fillStyle = COLORS.POWER;
-        ctx.fillText('You may continue playing or start a new colony.', canvasW / 2, canvasH / 2 + 55);
+        ctx.fillText('Click or press ESC to continue playing.', canvasW / 2, canvasH / 2 + 55);
         ctx.textAlign = 'left';
     },
 
@@ -649,6 +703,11 @@ const UI = {
     },
 
     handleClick(x, y, gameState) {
+        // Dismiss terraform win overlay on any click
+        if (gameState.terraformWon && !gameState.terraformWinAcknowledged) {
+            gameState.terraformWinAcknowledged = true;
+            return true;
+        }
         if (this.isInside(x, y, this.pauseButton)) {
             gameState.paused = !gameState.paused;
             return true;

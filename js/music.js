@@ -65,7 +65,7 @@ const Music = {
 
         // Load mute preference
         this.muted = localStorage.getItem('underhill_muted') === 'true';
-        this.masterGain.gain.value = this.muted ? 0 : 1;
+        this.masterGain.gain.value = this.muted ? 0 : 0.3;
 
         // Crossfade slot gains
         this.slotA.gain = this.ctx.createGain();
@@ -743,9 +743,7 @@ const Music = {
 
         // Determine target track based on game state priority
         let target = 'day';
-        if (Dialogue.isBuildMenu) {
-            target = 'build';
-        } else if (gameState.dustStormActive) {
+        if (gameState.dustStormActive) {
             target = 'storm';
         } else if (gameState.isNighttime) {
             target = 'night';
@@ -780,7 +778,7 @@ const Music = {
         const now = this.ctx.currentTime;
         this.masterGain.gain.cancelScheduledValues(now);
         this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-        this.masterGain.gain.linearRampToValueAtTime(this.muted ? 0 : 1, now + 0.3);
+        this.masterGain.gain.linearRampToValueAtTime(this.muted ? 0 : 0.3, now + 0.3);
     },
 
     // === SFX ===

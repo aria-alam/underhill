@@ -49,6 +49,11 @@ const Buildings = {
         this.recalculate(gameState);
         Grid.greeningDirty = true;
 
+        // Landing pad tip
+        if (type === BUILDING.LANDING_PAD) {
+            UI.addNotification('Landing Pad built! Colonists will arrive when you have housing capacity.', 'info');
+        }
+
         // Nudge player if they're standing on the new building
         const pt = Player.getTile();
         if (pt.col >= col && pt.col < col + def.width &&

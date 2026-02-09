@@ -22,6 +22,10 @@ const Renderer = {
     init(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
+        if (!this.ctx) {
+            console.error('Failed to get 2D context');
+            return;
+        }
         this.ctx.imageSmoothingEnabled = false;
         this.resize();
     },
